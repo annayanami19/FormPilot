@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "FormPilot",
+  "version": "0.12.0",
+  "description": "FormPilot — simpan kondisi form testing sebagai profile dan isi ulang dengan satu klik.",
+  "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage", "alarms"],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": [
+        "lib/db.js",
+        "lib/placeholder.js",
+        "lib/vault.js",
+        "content/form-agent.js",
+        "content/widget.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "FormPilot"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

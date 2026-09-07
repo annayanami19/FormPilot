@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>FormPilot</title>
+</head>
+<body>
+  <header>
+    <div class="brand">FormPilot</div>
+    <button id="btnOptions" class="link" title="Kelola profile">⚙ Kelola</button>
+  </header>
+
+  <div id="tabUrl" class="url" title="">…</div>
+
+  <div class="actions">
+    <button id="btnCapture" class="primary">📷 Capture form ini</button>
+  </div>
+
+  <div id="capturePanel" class="capture hidden">
+    <div id="capTitle" class="cap-title"></div>
+    <label class="cap-label" for="profName">Nama profile</label>
+    <input id="profName" type="text" placeholder="Nama profile…" maxlength="80" />
+    <label class="cap-label" for="profGroup">Grup</label>
+    <input id="profGroup" type="text" list="groupList" placeholder="Grup (mis. nama app / domain)" maxlength="60" />
+    <div id="capInfo" class="hint"></div>
+    <div id="capUpdate" class="cap-update hidden"></div>
+    <div class="row">
+      <button id="btnSaveCapture" class="primary small">Simpan profile</button>
+      <button id="btnCancelCapture" class="small">Batal</button>
+    </div>
+  </div>
+
+  <div id="vaultPanel" class="capture hidden">
+    <div id="vaultMsg" class="cap-title">🔐 Passphrase</div>
+    <input id="vaultPass" type="password" placeholder="Passphrase enkripsi…" />
+    <div class="row">
+      <button id="btnVaultGo" class="primary small">Buka &amp; lanjutkan</button>
+    </div>
+  </div>
+
+  <datalist id="groupList"></datalist>
+
+  <input id="search" type="search" placeholder="Cari nama / grup / tag…" />
+
+  <div id="profileList" class="list"></div>
+
+  <div id="fillResult" class="result hidden"></div>
+
+  <script src="../lib/db.js"></script>
+  <script src="../lib/placeholder.js"></script>
+  <script src="../lib/vault.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>FormPilot — Kelola Profile</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <header>
+    <h1>FormPilot — Kelola Profile</h1>
+    <div class="toolbar">
+      <button id="btnNew" class="primary">+ Profile Baru</button>
+      <button id="btnExport">⬇ Export JSON (backup)</button>
+      <button id="btnImport">⬆ Import JSON</button>
+      <input id="importFile" type="file" accept=".json,application/json" class="hidden" />
+    </div>
+  </header>
+
+  <main>
+    <div class="main-col">
+    <section>
+      <h2>Pengaturan</h2>
+      <label class="chk">
+        <input type="checkbox" id="setWidget" />
+        Tampilkan panel cepat (tombol FP di pojok kanan bawah) pada setiap halaman web
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="setDark" />
+        Dark mode untuk halaman Kelola ini
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="setDrag" />
+        Izinkan tombol FP digeser-geser (kalau dimatikan, tombol terkunci di pojok kanan bawah)
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="setUrlMatch" />
+        Di popup &amp; panel cepat, tampilkan hanya grup yang cocok dengan URL halaman aktif (default aktif)
+      </label>
+    </section>
+
+    <section>
+      <h2>Grup</h2>
+      <div class="row" style="margin-bottom: 10px; max-width: 420px;">
+        <input id="newGroupName" type="text" placeholder="Nama grup baru…" />
+        <button id="btnAddGroup" class="primary">+ Tambah</button>
+      </div>
+      <div class="table-scroll">
+        <table id="groupTable">
+          <thead>
+            <tr><th>Grup</th><th>Jumlah Profile</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="groupRows"></tbody>
+        </table>
+      </div>
+      <p id="emptyGroups" class="hint">Belum ada grup. Grup otomatis terbentuk saat capture (hostname), atau buat manual di sini.</p>
+    </section>
+
+    <section id="profileSection">
+      <h2>Daftar Profile</h2>
+      <div class="filter-bar">
+        <input id="filter" type="search" placeholder="Cari nama / grup / tag / URL / catatan / nilai field…" />
+        <select id="filterGroup">
+          <option value="">Semua grup</option>
+        </select>
+        <select id="filterTag">
+          <option value="">Semua tag</option>
+        </select>
+        <button id="btnFilterReset" class="small" title="Bersihkan semua filter">✕ Reset</button>
+        <button id="btnBaseUrl" class="small" title="Ganti origin (base URL) pada URL Pattern banyak profile sekaligus">🔗 Ganti Base URL</button>
+      </div>
+      <p id="filterInfo" class="hint" style="margin-bottom: 8px;"></p>
+      <div class="table-scroll">
+        <table id="profileTable">
+          <thead>
+            <tr><th>Nama</th><th>Grup</th><th>URL Pattern</th><th>Field</th><th>Diubah</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="profileRows"></tbody>
+        </table>
+      </div>
+      <p id="emptyProfiles" class="hint">Belum ada profile. Capture dari popup/panel, atau buat manual dengan "+ Profile Baru".</p>
+    </section>
+
+    <section id="editor" class="hidden">
+      <h2 id="edTitle">Edit Profile</h2>
+
+      <div class="grid2">
+        <label>Nama<br /><input id="edName" type="text" /></label>
+        <label>Grup<br /><input id="edGroup" type="text" list="groupList" placeholder="mis. nama app / domain" /></label>
+        <label>URL Pattern (glob; ** = bebas)<br />
+          <input id="edPattern" type="text" placeholder="https://app.example.com/**" />
+        </label>
+        <label>Tag (pisah koma)<br /><input id="edTags" type="text" placeholder="smoke, regression" /></label>
+        <label style="grid-column: 1 / -1;">Catatan<br /><input id="edNotes" type="text" /></label>
+      </div>
+
+      <datalist id="groupList"></datalist>
+
+      <h3>Field Mapping</h3>
+      <table id="fieldTable">
+        <thead>
+          <tr><th>Selector</th><th>Label</th><th>Tipe</th><th>Nilai</th><th></th></tr>
+        </thead>
+        <tbody id="fieldRows"></tbody>
+      </table>
+      <button id="btnAddField" class="small">+ Field</button>
+
+      <div class="row" style="margin-top: 14px;">
+        <button id="btnSaveProfile" class="primary">💾 Simpan Profile</button>
+        <button id="btnCancelEdit">Batal</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Backup Otomatis</h2>
+      <label class="chk">
+        <input type="checkbox" id="setAutoBackup" />
+        Aktifkan auto backup (dijalankan 1 menit setelah ada perubahan data)
+      </label>
+      <div class="row" style="margin-top: 10px; align-items: center; flex-wrap: wrap;">
+        <button id="btnPickDir" class="primary">📁 Pilih folder backup</button>
+        <button id="btnBackupNow">💾 Backup sekarang</button>
+        <button id="btnRegrant" class="hidden">🔑 Beri izin ulang</button>
+      </div>
+      <p id="backupStatus" class="hint" style="margin-top: 8px;"></p>
+      <p class="hint">Tiap backup menulis file <code>formpilot-backup-&lt;tanggal&gt;.json</code> ke folder pilihanmu (10 terakhir disimpan). Tip: pilih folder yang tersinkron OneDrive/Drive agar backup ikut ke cloud.</p>
+    </section>
+
+    <section>
+      <h2>Fill Log <button id="btnClearLog" class="small danger">Hapus log</button></h2>
+      <div class="table-scroll">
+        <table id="logTable">
+          <thead>
+            <tr><th>Waktu</th><th>Profile</th><th>URL</th><th>Hasil</th></tr>
+          </thead>
+          <tbody id="logRows"></tbody>
+        </table>
+      </div>
+      <p id="emptyLogs" class="hint">Belum ada riwayat fill.</p>
+    </section>
+
+    <section>
+      <h2>Keamanan</h2>
+      <p id="vaultStatus" class="hint" style="margin-bottom: 8px;"></p>
+      <div class="row" style="align-items: center; flex-wrap: wrap;">
+        <input id="vaultPass" type="password" placeholder="Passphrase…" style="max-width: 240px;" />
+        <button id="btnVaultPrimary" class="primary">🔐 Aktifkan enkripsi</button>
+        <button id="btnVaultChange" class="hidden">🔑 Ubah passphrase</button>
+        <button id="btnVaultOff" class="hidden danger">🔓 Nonaktifkan (dekripsi semua)</button>
+      </div>
+      <p class="hint" style="margin-top: 8px;">
+        Saat aktif, nilai field sensitif (password) dienkripsi <strong>AES-GCM</strong> dengan kunci
+        dari passphrase — data di storage, export JSON, dan file backup ikut terenkripsi. Passphrase
+        <strong>tidak bisa di-reset</strong>: kalau lupa, nilai terenkripsi tidak dapat dipulihkan.
+        Passphrase diingat selama halaman/tab terbuka saja, dan saat profil dengan field terenkripsi
+        dipakai Fill, panel akan memintanya sekali per sesi.
+      </p>
+    </section>
+
+    <section class="danger-zone">
+      <h2>Zone Berbahaya</h2>
+      <button id="btnClearAll" class="danger">🗑 Hapus SEMUA data (profile + log)</button>
+    </section>
+    </div>
+
+    <aside class="guide">
+      <div class="guide-head">
+        <h2>📘 Panduan Cepat</h2>
+        <button id="btnGuideToggle" class="small" type="button">▴ Sembunyikan</button>
+      </div>
+
+      <div id="guideBody">
+        <h3>1. Simpan form (Capture)</h3>
+        <ul>
+          <li>Isi form di halaman target seperti biasa.</li>
+          <li>Klik <strong>📷 Capture</strong> — lewat popup atau panel FP di pojok kanan bawah.</li>
+          <li>Beri nama → <strong>Simpan profile</strong>. Kalau ada profile serupa, muncul tombol <strong>🔄 Perbarui</strong> untuk menimpa data lama.</li>
+        </ul>
+
+        <h3>2. Isi ulang form (Fill)</h3>
+        <ul>
+          <li>Buka form kosong yang URL-nya cocok.</li>
+          <li>Klik <strong>Fill</strong> — field terisi otomatis (garis hijau). Yang gagal dilaporkan lengkap dengan alasannya.</li>
+          <li>Upload file memang diisi manual (batasan browser); sisanya otomatis.</li>
+        </ul>
+
+        <h3>3. Kelola profile</h3>
+        <ul>
+          <li><strong>Edit</strong> — ubah selector/nilai per field, URL pattern, tag &amp; catatan.</li>
+          <li><strong>Duplikat / Hapus</strong> tersedia di tiap baris; nama otomatis unik gaya Windows.</li>
+          <li><strong>Grup</strong> terbentuk otomatis dari hostname saat capture; bisa ditambah/rename/hapus di bagian Grup.</li>
+          <li><strong>Tag</strong> opsional — isi manual di editor; memunculkan dropdown filter tag.</li>
+          <li><strong>Filter</strong> di Daftar Profile bisa menyentuh nilai field (mis. nomor quote tertentu).</li>
+        </ul>
+
+        <h3>4. Nilai dinamis &amp; backup</h3>
+        <ul>
+          <li>Nilai field bisa memakai placeholder: <code>{{today}}</code>, <code>{{today+30}}</code>, <code>{{time}}</code>, <code>{{timestamp}}</code>, <code>{{uuid}}</code>.</li>
+          <li><strong>Export JSON</strong> secara rutin, atau aktifkan <strong>Backup Otomatis</strong> ke folder tersinkron.</li>
+          <li>Pengaturan <em>"grup sesuai URL"</em> mengatur daftar di popup &amp; panel cepat: hanya grup yang cocok dengan halaman aktif yang tampil.</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="dlgBaseUrl">
+    <h2>Ganti Base URL Massal</h2>
+    <p class="hint">
+      Ganti origin (protokol + domain + port) pada <em>URL Pattern</em> banyak profile sekaligus —
+      misal saat aplikasi pindah domain (staging → produksi). Path pada pattern tetap dipertahankan,
+      dan profile dengan origin lain tidak tersentuh.
+    </p>
+    <div class="grid2">
+      <label>Base URL lama<br /><input id="oldBase" type="text" list="baseList" placeholder="https://staging.example.com" /></label>
+      <label>Base URL baru<br /><input id="newBase" type="text" placeholder="https://app.example.com" /></label>
+    </div>
+    <datalist id="baseList"></datalist>
+    <div id="basePreview" class="base-preview"></div>
+    <div class="row" style="margin-top: 14px;">
+      <button id="btnApplyBase" class="primary" type="button" disabled>Ganti Base URL (0 profile)</button>
+      <button id="btnCancelBase" type="button">Batal</button>
+    </div>
+  </dialog>
+
+  <script src="../lib/db.js"></script>
+  <script src="../lib/backup.js"></script>
+  <script src="../lib/vault.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

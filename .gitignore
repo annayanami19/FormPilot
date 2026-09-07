@@ -1,0 +1,23 @@
+# Sistem operasi
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# Node (jaga-jaga bila nanti ada tooling)
+node_modules/
+
+# Hasil packing extension — jangan pernah commit kunci signing!
+*.zip
+*.crx
+*.pem
+
+# Log & hasil pengujian lokal
+*.log
+results/
