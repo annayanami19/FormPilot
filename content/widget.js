@@ -187,6 +187,10 @@
     const copy = JSON.parse(JSON.stringify(fields || []));
     if (mode === 'fill') {
       if (!Vault.needsOpen(copy)) return copy;
+      // Field tertanda terenkripsi tapi fitur enkripsi MATI — jangan tampilkan
+      // form passphrase (fitur nonaktif harus benar-benar pasif). Return false
+      // = sinyal ke gated() untuk menampilkan penjelasan, bukan form.
+      if (!(await Vault.isActive())) return false;
       if (!vaultPassOpen) return null;
       await Vault.unlock(vaultPassOpen); // sinkron dengan vault terkini
       await Vault.openFields(copy);
@@ -214,6 +218,14 @@
           );
           return;
         }
+        if (copy === false) {
+          showResult(
+            'Profil ini punya field terenkripsi, tapi enkripsi NONAKTIF — nilai lama tidak bisa dibuka. ' +
+              'Buka ⚙ Kelola → Edit, isi ulang nilai password-nya (tersimpan polos), atau aktifkan lagi enkripsinya.',
+            'warn'
+          );
+          return;
+        }
         await fn(copy);
       })
       .catch((e) => {
@@ -222,7 +234,36 @@
       });
   }
 
+  /* Form passphrase dibuat LAZY (saat pertama kali diminta), bukan saat
+     widget lahir. Alasan: input type="password" yang selalu ada di DOM
+     membuat password manager browser mengira halaman punya form login —
+     kredensial tersimpan jadi menempel ke field search dsb. Dengan lazy,
+     field password hanya ada di halaman saat passphrase benar-benar diminta.
+     autocomplete="new-password" = penanda tambahan "ini bukan field login". */
+  function ensureVaultForm() {
+    if (vaultWrap) return;
+    vaultWrap = el('div', 'qa-cap');
+    vaultWrap.style.display = 'none';
+    vaultMsg = el('div', 'qa-cap-title', '🔐 Passphrase');
+    vaultInput = document.createElement('input');
+    vaultInput.type = 'password';
+    vaultInput.autocomplete = 'new-password';
+    vaultInput.placeholder = 'Passphrase enkripsi…';
+    vaultInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') safeRun(submitVaultPass);
+    });
+    const vaultRow = el('div', 'qa-foot');
+    vaultRow.style.borderTop = 'none';
+    const vaultGo = el('button', 'qa-primary', 'Buka & lanjutkan');
+    vaultGo.type = 'button';
+    vaultGo.addEventListener('click', () => safeRun(submitVaultPass));
+    vaultRow.appendChild(vaultGo);
+    vaultWrap.append(vaultMsg, vaultInput, vaultRow);
+    panel.insertBefore(vaultWrap, resultEl); // posisi: setelah form capture
+  }
+
   function showVaultForm(msg) {
+    ensureVaultForm();
     vaultMsg.textContent = msg;
     vaultWrap.style.display = 'block';
     vaultInput.value = '';
@@ -641,7 +682,7 @@
       resultEl.style.display = 'none';
       capWrap.style.display = 'none';
       capUpd.style.display = 'none';
-      vaultWrap.style.display = 'none';
+      if (vaultWrap) vaultWrap.style.display = 'none'; // belum dibuat = tidak ada yang perlu disembunyikan
       clearCapHighlight(); // form capture lama sudah tidak terbuka lagi
       await renderList();
       searchInput.focus();
@@ -705,6 +746,7 @@
     const searchWrap = el('div', 'qa-search');
     searchInput = document.createElement('input');
     searchInput.type = 'search';
+    searchInput.autocomplete = 'off';
     searchInput.placeholder = '🔍 Cari nama / grup / tag / field…';
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
@@ -724,10 +766,12 @@
     capName.id = 'qa-cap-name';
     lblName.setAttribute('for', 'qa-cap-name');
     capName.type = 'text';
+    capName.autocomplete = 'off';
     capName.placeholder = 'Nama profile…';
     capName.maxLength = 80;
     capGroup = document.createElement('input');
     capGroup.type = 'text';
+    capGroup.autocomplete = 'off';
     capGroup.placeholder = 'Grup (mis. nama app / domain)';
     capGroup.maxLength = 60;
     const lblGroup = el('label', 'qa-cap-label', 'Grup');
@@ -756,24 +800,6 @@
     capUpd.style.display = 'none';
     capRow.append(saveBtn, cancelBtn);
     capWrap.append(capTitle, lblName, capName, lblGroup, capGroup, dlEl, capInfo, capUpd, capRow);
-
-    // Form passphrase — muncul hanya saat field terenkripsi dibutuhkan.
-    vaultWrap = el('div', 'qa-cap');
-    vaultWrap.style.display = 'none';
-    vaultMsg = el('div', 'qa-cap-title', '🔐 Passphrase');
-    vaultInput = document.createElement('input');
-    vaultInput.type = 'password';
-    vaultInput.placeholder = 'Passphrase enkripsi…';
-    vaultInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') safeRun(submitVaultPass);
-    });
-    const vaultRow = el('div', 'qa-foot');
-    vaultRow.style.borderTop = 'none';
-    const vaultGo = el('button', 'qa-primary', 'Buka & lanjutkan');
-    vaultGo.type = 'button';
-    vaultGo.addEventListener('click', () => safeRun(submitVaultPass));
-    vaultRow.appendChild(vaultGo);
-    vaultWrap.append(vaultMsg, vaultInput, vaultRow);
 
     const foot = el('div', 'qa-foot');
     const capBtn = el('button', 'qa-primary', '📷 Capture');
@@ -806,7 +832,7 @@
     offBtn.addEventListener('click', () => safeRun(disable));
     foot.append(capBtn, geserBtn, offBtn);
 
-    panel.append(head, searchWrap, listEl, capWrap, vaultWrap, resultEl, foot);
+    panel.append(head, searchWrap, listEl, capWrap, resultEl, foot);
     shadow.appendChild(panel);
 
     fab = el('button', 'qa-fab');

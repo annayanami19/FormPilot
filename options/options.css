@@ -138,6 +138,7 @@ button {
   font-size: 13px;
 }
 button:hover { background: var(--hover); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 button.primary {
   background: var(--accent);
   border-color: var(--accent);

@@ -142,11 +142,15 @@
       <h2>Keamanan</h2>
       <p id="vaultStatus" class="hint" style="margin-bottom: 8px;"></p>
       <div class="row" style="align-items: center; flex-wrap: wrap;">
-        <input id="vaultPass" type="password" placeholder="Passphrase…" style="max-width: 240px;" />
-        <button id="btnVaultPrimary" class="primary">🔐 Aktifkan enkripsi</button>
+        <input id="vaultPass" type="password" autocomplete="new-password" placeholder="Passphrase…" style="max-width: 240px;" />
+        <button id="btnVaultPrimary" class="primary" disabled>🔐 Aktifkan enkripsi</button>
         <button id="btnVaultChange" class="hidden">🔑 Ubah passphrase</button>
         <button id="btnVaultOff" class="hidden danger">🔓 Nonaktifkan (dekripsi semua)</button>
       </div>
+      <label class="chk" id="vaultConfirmWrap" style="margin-top: 10px;">
+        <input type="checkbox" id="vaultConfirm" />
+        Saya sadar &amp; paham: mengaktifkan enkripsi akan mengenkripsi semua nilai password, dan passphrase tidak bisa di-reset
+      </label>
       <p class="hint" style="margin-top: 8px;">
         Saat aktif, nilai field sensitif (password) dienkripsi <strong>AES-GCM</strong> dengan kunci
         dari passphrase — data di storage, export JSON, dan file backup ikut terenkripsi. Passphrase

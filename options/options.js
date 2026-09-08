@@ -619,12 +619,16 @@ async function applyBaseUrlReplace() {
 async function refreshVaultUi() {
   const active = await Vault.isActive();
   const open = active && !!VAULT_PASS;
-  $('#btnVaultPrimary').textContent = open ? '✅ Sesi terbuka' : active ? '🔓 Buka sesi' : '🔐 Aktifkan enkripsi';
-  $('#btnVaultPrimary').disabled = open;
+  const primary = $('#btnVaultPrimary');
+  primary.textContent = open ? '✅ Sesi terbuka' : active ? '🔓 Buka sesi' : '🔐 Aktifkan enkripsi';
+  // Enkripsi nonaktif: tombol aktivasi tetap abu-abu (disabled) sampai
+  // pernyataan konfirmasi dicentang — centang saja belum mengaktifkan apa pun.
+  primary.disabled = open || (!active && !$('#vaultConfirm').checked);
+  $('#vaultConfirmWrap').classList.toggle('hidden', active);
   $('#btnVaultChange').classList.toggle('hidden', !open);
   $('#btnVaultOff').classList.toggle('hidden', !open);
   $('#vaultStatus').textContent = !active
-    ? 'Enkripsi nonaktif — nilai field sensitif (password) tersimpan apa adanya.'
+    ? 'Enkripsi nonaktif — nilai field sensitif (password) tersimpan apa adanya. Fitur ini 100% pasif: tidak ada yang meminta passphrase.'
     : open
       ? 'Enkripsi aktif — sesi terbuka di halaman ini, nilai terenkripsi bisa diedit/dipakai.'
       : 'Enkripsi aktif — isi passphrase lalu klik "Buka sesi" untuk mengedit nilai terenkripsi.';
@@ -652,10 +656,14 @@ async function vaultPrimaryAction() {
   const pass = $('#vaultPass').value;
   if (!(await Vault.isActive())) {
     if (!Vault.subtleOk()) return alert('Web Crypto tidak tersedia di browser ini.');
+    if (!$('#vaultConfirm').checked) {
+      return alert('Centang dulu pernyataan konfirmasi di bawah untuk mengaktifkan enkripsi.');
+    }
     if (pass.length < 4) return alert('Passphrase minimal 4 karakter. Jangan sampai lupa — tidak ada reset!');
     await Vault.activate(pass);
     VAULT_PASS = pass;
     const n = await encryptAllSensitive();
+    $('#vaultConfirm').checked = false; // reset — aktivasi berikutnya minta konfirmasi lagi
     alert(
       'Enkripsi diaktifkan' + (n ? ' — ' + n + ' nilai sensitif sudah terenkripsi.' : '.') +
       '\n\nPENTING: passphrase tidak bisa dipulihkan. Simpan di tempat aman.'
@@ -903,6 +911,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#vaultPass').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') vaultPrimaryAction();
   });
+  $('#vaultConfirm').addEventListener('change', refreshVaultUi); // hidupkan/matikan tombol aktivasi
   refreshVaultUi();
 
   $('#btnClearLog').addEventListener('click', async () => {

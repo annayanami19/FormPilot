@@ -62,6 +62,9 @@ async function prepareFields(fields, mode) {
   const copy = JSON.parse(JSON.stringify(fields || []));
   if (mode === 'fill') {
     if (!Vault.needsOpen(copy)) return copy;
+    // Field tertanda terenkripsi tapi enkripsi MATI — tanpa form passphrase
+    // (fitur nonaktif harus benar-benar pasif). false = sinyal ke gated().
+    if (!(await Vault.isActive())) return false;
     if (!VAULT_PASS) return null;
     await Vault.unlock(VAULT_PASS); // sinkron dengan vault terkini
     await Vault.openFields(copy);
@@ -87,6 +90,14 @@ function gated(fields, mode, fn) {
         $('#vaultPanel').classList.remove('hidden');
         $('#vaultPass').value = '';
         $('#vaultPass').focus();
+        return;
+      }
+      if (copy === false) {
+        showResult(
+          'Profil ini punya field terenkripsi, tapi enkripsi NONAKTIF — nilai lama tidak bisa dibuka. ' +
+            'Buka ⚙ Kelola → Edit, isi ulang nilai password-nya (tersimpan polos), atau aktifkan lagi enkripsinya.',
+          'warn'
+        );
         return;
       }
       await fn(copy);
