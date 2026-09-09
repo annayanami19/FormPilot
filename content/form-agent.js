@@ -553,6 +553,10 @@
       };
     };
 
+    /* Alasan jalur widget gagal (diisi di cabang select) — tercetak sebagai
+       penanda stale di hasil bila fill jatuh ke jalur native. */
+    let widgetWhy = '';
+
     /* Baris dinamis (name="x[]") punya jalur resolusi sendiri; selector
        generik sengaja tidak dipakai fallback karena ambigu. */
     let el = null;
@@ -588,7 +592,6 @@
         /* Jalur widget dulu: klik opsi di UI widget-nya agar state internal
            dan tampilannya ikut terisi. Bila widget tidak mau — catat titik
            gagalnya untuk diagnostik, lalu jatuh ke jalur native di bawah. */
-        let widgetWhy = '';
         if (widgetWrapOf(el)) {
           const targets = el.multiple ? wanted : wanted.slice(0, 1);
           let picked = 0;
