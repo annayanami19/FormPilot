@@ -96,29 +96,37 @@
     const findOpt = () =>
       wrap.querySelector('[data-selectable][data-value="' + attr + '"]') ||
       wrap.querySelector('[data-value="' + attr + '"]');
-    let opt = findOpt();
-    if (!opt && text) {
+    const findOptByText = () => {
+      if (!text) return null;
       const want = String(text).trim().toLowerCase();
-      opt =
+      return (
         [...wrap.querySelectorAll('[data-selectable], .choices__item--choice')].find(
           (o) => (o.textContent || '').trim().toLowerCase() === want
-        ) || null;
+        ) || null
+      );
+    };
+
+    // Isi dropdown lazim dibangun/diperbarui SAAT dropdown terbuka
+    // (refreshOptions pada TomSelect) — pada form yang barusan dibuka,
+    // dropdown belum pernah dibuka dan isinya masih kosong. Maka: kalau
+    // opsi tidak ketemu sementara dropdown tertutup, buka dulu seperti
+    // klik user, baru cari ulang node opsinya.
+    const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
+    const isOpen = () => dd && getComputedStyle(dd).display !== 'none';
+    let opt = findOpt() || findOptByText();
+    if (!opt && dd && !isOpen()) {
+      const ctl = wrap.querySelector('.ts-control, .choices');
+      if (ctl) mouseBurst(ctl); // buka dropdown
+      opt = findOpt() || findOptByText(); // ambil node hasil render terbaru
     }
     if (!opt) return { ok: false, why: 'opsi-tidak-ditemukan-di-widget' };
-
-    const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
-    if (dd && getComputedStyle(dd).display === 'none') {
-      const ctl = wrap.querySelector('.ts-control, .choices');
-      if (ctl) mouseBurst(ctl); // buka dropdown seperti klik user
-      opt = findOpt() || opt; // node terbaru bila isi dropdown dibangun ulang
-    }
     mouseBurst(opt);
 
     const pickedNow =
       el.value === String(value) ||
       !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
       !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]');
-    if (!pickedNow && dd && getComputedStyle(dd).display !== 'none') {
+    if (!pickedNow && dd && isOpen()) {
       // gagal pilih — tutup lagi dropdown yang sempat terbuka
       const ci = wrap.querySelector('input');
       if (ci) {
@@ -423,7 +431,10 @@
           : el.value;
       }
       fields.push(field);
-      hitEls.push(el);
+      // Highlight di elemen yang TERLIHAT — field asli milik widget select
+      // enhanced disembunyikan widget-nya (1px & clip), outline di sana
+      // tidak akan tampak di layar.
+      hitEls.push(widgetWrapOf(el) || el);
     });
 
     // Highlight permanen semua field terdeteksi — bertahan selama form
