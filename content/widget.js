@@ -625,9 +625,14 @@
       showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
       return;
     }
-    const data = api.capture();
+    const data = await api.capture();
     if (!data.count) {
-      showResult('Tidak ada field terisi yang terdeteksi di halaman ini.', 'err');
+      showResult(
+        data.scopedModal
+          ? 'Modal terbuka tapi belum ada field terisi di dalamnya — isi dulu field-nya, lalu Capture lagi.'
+          : 'Tidak ada field terisi yang terdeteksi di halaman ini.',
+        'err'
+      );
       return;
     }
     pending = data;

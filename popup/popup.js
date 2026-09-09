@@ -304,7 +304,12 @@ async function startCapture() {
   }
   const res = await chrome.tabs.sendMessage(TAB.id, { type: 'QA_CAPTURE' });
   if (!res.data || !res.data.count) {
-    showResult('Tidak ada field terisi yang terdeteksi — isi form dulu, baru capture.', 'err');
+    showResult(
+      res.data && res.data.scopedModal
+        ? 'Modal terbuka tapi belum ada field terisi di dalamnya — isi dulu field-nya, baru capture.'
+        : 'Tidak ada field terisi yang terdeteksi — isi form dulu, baru capture.',
+      'err'
+    );
     return;
   }
   PENDING = res.data;

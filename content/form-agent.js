@@ -276,10 +276,43 @@
 
   /* ---------- capture ---------- */
 
-  function capture() {
+  /* Dialog modal aktif — :modal hanya cocok untuk dialog showModal() yang
+     memang menutupi halaman; dialog show()/open biasa tidak perlu ditumpangi. */
+  const HAS_MODAL_SELECTOR = (() => {
+    try {
+      return CSS.supports('selector(dialog:modal)');
+    } catch {
+      return false;
+    }
+  })();
+
+  function activeModalDialog() {
+    const sel = HAS_MODAL_SELECTOR ? 'dialog:modal' : 'dialog[open]';
+    const list = document.querySelectorAll(sel);
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  async function capture() {
     const fields = [];
     const hitEls = []; // elemen terdeteksi — untuk highlight visual
-    document.querySelectorAll(FILLABLE).forEach((el) => {
+
+    // Capture fokus modal (setting, default ON): saat ada modal <dialog>
+    // terbuka, hanya field di dalam modal yang dipindai — filter, pagination,
+    // dan field lain di belakang modal diabaikan.
+    let root = document;
+    let scopedModal = false;
+    try {
+      if (await DB.getCaptureModalOnly()) {
+        const modal = activeModalDialog();
+        if (modal) {
+          root = modal;
+          scopedModal = true;
+        }
+      }
+    } catch {
+      root = document; // setting tak terbaca — pakai pemindaian seluruh halaman
+    }
+    root.querySelectorAll(FILLABLE).forEach((el) => {
       if (!isVisibleField(el) || !isCapturable(el)) return;
       const t = inputType(el);
 
@@ -338,7 +371,13 @@
     // capture terbuka; dibersihkan lewat clearCaptureHighlight().
     markCaptureHighlight(hitEls);
 
-    return { url: location.href, title: document.title, count: fields.length, fields };
+    return {
+      url: location.href,
+      title: document.title,
+      count: fields.length,
+      fields,
+      scopedModal,
+    };
   }
 
   /* ---------- fill ---------- */
@@ -560,7 +599,12 @@
     if (msg.type === 'QA_PING') {
       sendResponse({ ok: true });
     } else if (msg.type === 'QA_CAPTURE') {
-      sendResponse({ ok: true, data: capture() });
+      // capture kini async (membaca setting) — respons dikirim setelah selesai
+      capture().then(
+        (data) => sendResponse({ ok: true, data }),
+        () => sendResponse({ ok: false })
+      );
+      return true;
     } else if (msg.type === 'QA_FILL') {
       sendResponse(fill(msg.values));
     } else if (msg.type === 'QA_CLEAR_HL') {
