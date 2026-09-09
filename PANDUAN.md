@@ -202,7 +202,7 @@ Catatan field mapping:
 - Bila izin folder kedaluwarsa, muncul tombol **🔑 Beri izin ulang**.
 - 💡 Tip: pilih folder yang tersinkron OneDrive/Drive agar backup ikut ke cloud.
 
-### 8.6 Update Otomatis
+### 8.6 Perbarui Profil Otomatis
 
 Section sendiri di halaman Kelola (default **mati**): bila diaktifkan, saat capture menemukan **profil serupa** (URL pattern cocok + ada field yang sama), profil itu **langsung diperbarui otomatis** dengan hasil capture sekarang — tanpa perlu mengklik tombol 🔄 satu per satu.
 
@@ -211,22 +211,31 @@ Section sendiri di halaman Kelola (default **mati**): bila diaktifkan, saat capt
 - Field dengan nilai terenkripsi tetap melalui gerbang passphrase seperti biasa.
 - Default mati karena efeknya langsung menulis data — nyalakan hanya bila alur kerjamu memang selalu menimpa profil serupa saat capture ulang.
 
-### 8.7 Export / Import JSON
+### 8.7 Update Otomatis
+
+Section untuk **update extension-nya sendiri** (default **mati**). Extension yang dipasang *Load unpacked* tidak bisa memasang versi baru sendiri — yang dilakukan fitur ini adalah **memeriksa versi baru secara berkala** (tiap 6 jam saat diaktifkan):
+
+- **Sumber**: URL berkas yang berisi field `version` (default: `manifest.json` di branch `main` repo GitHub FormPilot) — bisa diganti ke server internal mana pun.
+- Bila ada versi lebih baru, **ikon extension diberi badge "BARU"** dan statusnya tampil di section ini.
+- **🔄 Periksa sekarang** — cek manual kapan pun; **⬇ Buka halaman unduhan** — membuka repo sumbernya.
+- Cara memasang versi baru: unduh → ganti isi folder extension → **↻ Reload** di `chrome://extensions` → refresh tab target.
+
+### 8.8 Export / Import JSON
 
 - **⬇ Export JSON**: unduh `formpilot-export-<tanggal>.json` berisi semua profil + grup.
 - **⬆ Import JSON**: gabungkan isi file export — profil duplikat (ID sama) otomatis diberi ID baru, grup dari file ikut ditambahkan.
 - Format file export & backup identik — file backup bisa langsung di-Import.
 - Bila enkripsi aktif, nilai sensitif di file **tetap terenkripsi** (`enc1:…`) — aman disimpan/dibagikan, dan tetap bisa dipakai di komputer lain dengan passphrase yang sama.
 
-### 8.8 Fill Log
+### 8.9 Fill Log
 
 Riwayat fill: waktu, profil, URL, dan hasil (terisi / diisi manual / gagal beserta alasannya). Ada tombol **Hapus log**.
 
-### 8.9 Zone Berbahaya
+### 8.10 Zone Berbahaya
 
 **🗑 Hapus SEMUA data** — menghapus profil, grup, dan log sekaligus. Tidak bisa dibatalkan; export dulu bila perlu.
 
-### 8.10 Panduan Cepat
+### 8.11 Panduan Cepat
 
 Sidebar kanan berisi ringkasan cara pakai. Tombol **▴ Sembunyikan** melipat isinya (judul tetap tampil) — posisi terakhir diingat saat halaman dibuka lagi.
 
@@ -275,7 +284,7 @@ Field bertipe password **tidak wajib, tapi sangat disarankan**, dienkripsi:
 
 ## 11. Backup Otomatis & Export/Import
 
-Ringkas: **Backup Otomatis** = rutin & otomatis ke folder pilihanmu (bagian 8.5). **Export/Import** = manual, sekali unduh file JSON (bagian 8.7). **Update Otomatis** = opsi memperbarui profil serupa otomatis saat capture (bagian 8.6). Formatnya identik dan saling bisa di-Import.
+Ringkas: **Backup Otomatis** = rutin & otomatis ke folder pilihanmu (bagian 8.5). **Perbarui Profil Otomatis** = opsi memperbarui profil serupa otomatis saat capture (bagian 8.6). **Update Otomatis** = pemeriksaan versi baru extension (bagian 8.7). **Export/Import** = manual, sekali unduh file JSON (bagian 8.8). Formatnya identik dan saling bisa di-Import.
 
 ---
 

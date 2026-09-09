@@ -130,7 +130,7 @@
     </section>
 
     <section>
-      <h2>Update Otomatis</h2>
+      <h2>Perbarui Profil Otomatis</h2>
       <label class="chk">
         <input type="checkbox" id="setAutoUpdate" />
         Saat capture menemukan profile serupa, perbarui profile itu secara otomatis (tanpa klik tombol 🔄 satu per satu)
@@ -140,6 +140,27 @@
         maksimal 5 teratas, sama seperti daftar tombol 🔄 Perbarui. Field profile ditimpa dengan hasil capture
         terbaru dan hasilnya dilaporkan di panel/popup. <strong>Default mati</strong> karena efeknya langsung
         menulis data — nyalakan hanya bila alur kerjamu memang selalu menimpa profile serupa saat capture ulang.
+      </p>
+    </section>
+
+    <section>
+      <h2>Update Otomatis</h2>
+      <label class="chk">
+        <input type="checkbox" id="setUpdateCheck" />
+        Periksa versi baru secara otomatis (tiap 6 jam; bila ada versi lebih baru, ikon extension diberi tanda)
+      </label>
+      <div class="row" style="margin-top: 10px; align-items: center; flex-wrap: wrap;">
+        <input id="updateUrl" type="text" style="max-width: 420px;" placeholder="URL manifest versi…" />
+        <button id="btnCheckUpdate">🔄 Periksa sekarang</button>
+        <button id="btnOpenRepo">⬇ Buka halaman unduhan</button>
+      </div>
+      <p id="updateStatus" class="hint" style="margin-top: 8px;"></p>
+      <p class="hint">
+        Extension yang dipasang <em>Load unpacked</em> tidak bisa memasang versi baru sendiri — yang dilakukan
+        fitur ini adalah membandingkan versi terpasang dengan versi di sumber (berkas berisi field
+        <code>version</code>, mis. <code>manifest.json</code> di repo GitHub), lalu memberi tanda &amp; membuka
+        halaman unduhannya. Setelah mengunduh: ganti isi folder extension → <strong>↻ Reload</strong> di
+        <code>chrome://extensions</code> → refresh tab target.
       </p>
     </section>
 

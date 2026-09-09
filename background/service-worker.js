@@ -25,12 +25,50 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== AutoBackup.ALARM) return;
-  AutoBackup.run().catch((e) => {
-    const msg = String((e && e.message) || e);
-    // Masalah izin sudah ditandai oleh AutoBackup.run(); sisanya dicatat untuk Kelola
-    if (!/izin/i.test(msg)) {
-      chrome.storage.local.set({ lastBackupError: msg });
-    }
+  if (alarm.name === AutoBackup.ALARM) {
+    AutoBackup.run().catch((e) => {
+      const msg = String((e && e.message) || e);
+      // Masalah izin sudah ditandai oleh AutoBackup.run(); sisanya dicatat untuk Kelola
+      if (!/izin/i.test(msg)) {
+        chrome.storage.local.set({ lastBackupError: msg });
+      }
+    });
+  }
+  if (alarm.name === UPDATE_ALARM) runUpdateCheck();
+});
+
+/* ---------- pemeriksaan update extension (default OFF) ----------
+   Alarm periodik membandingkan versi terpasang dengan versi di sumber
+   (DB.checkForUpdate). Bila ada yang lebih baru, ikon extension diberi
+   badge "BARU" sampai diperiksa ulang dari halaman Kelola. */
+const UPDATE_ALARM = 'qaUpdateCheck';
+const UPDATE_PERIOD_MIN = 360; // 6 jam
+
+function scheduleUpdateAlarm(enabled) {
+  if (enabled) {
+    chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_PERIOD_MIN });
+  } else {
+    chrome.alarms.clear(UPDATE_ALARM);
+    chrome.action.setBadgeText({ text: '' });
+  }
+}
+
+function runUpdateCheck() {
+  DB.checkForUpdate()
+    .then((info) => chrome.action.setBadgeText({ text: info.hasNew ? 'BARU' : '' }))
+    .catch(() => {
+      /* sumber tak terjangkau — biarkan hasil pemeriksaan terakhir */
+    });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.action.setBadgeBackgroundColor({ color: '#16a34a' });
+  chrome.storage.local.get('updateCheckEnabled', ({ updateCheckEnabled }) => {
+    scheduleUpdateAlarm(!!updateCheckEnabled);
   });
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.updateCheckEnabled) return;
+  scheduleUpdateAlarm(!!changes.updateCheckEnabled.newValue);
 });

@@ -833,6 +833,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#setAutoUpdate').checked = await DB.getAutoUpdateProfiles();
   $('#setAutoUpdate').addEventListener('change', (e) => DB.setAutoUpdateProfiles(e.target.checked));
 
+  /* ---------- Update Otomatis (extension) ---------- */
+  $('#setUpdateCheck').checked = await DB.getUpdateCheckEnabled();
+  $('#setUpdateCheck').addEventListener('change', (e) => DB.setUpdateCheckEnabled(e.target.checked));
+  $('#updateUrl').value = await DB.getUpdateCheckUrl();
+  $('#updateUrl').addEventListener('change', (e) => DB.setUpdateCheckUrl(e.target.value));
+
+  const renderUpdateStatus = (info) => {
+    const st = $('#updateStatus');
+    const ver = chrome.runtime.getManifest().version;
+    if (!info) {
+      st.textContent = 'Versi terpasang ' + ver + ' — belum pernah diperiksa.';
+      return;
+    }
+    if (info.hasNew) {
+      st.textContent =
+        'Versi terpasang ' + info.current + ' — VERSI BARU TERSEDIA: ' + info.latest +
+        '. Unduh versi baru, ganti isi folder extension, lalu ↻ Reload di chrome://extensions.';
+    } else {
+      st.textContent =
+        'Versi terpasang ' + ver + ' — sudah yang terbaru (dicek ' +
+        new Date(info.checkedAt).toLocaleString() + ').';
+    }
+  };
+
+  $('#btnCheckUpdate').addEventListener('click', async () => {
+    const btn = $('#btnCheckUpdate');
+    btn.disabled = true;
+    $('#updateStatus').textContent = 'Memeriksa…';
+    try {
+      const info = await DB.checkForUpdate();
+      await chrome.action.setBadgeText({ text: info.hasNew ? 'BARU' : '' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#16a34a' });
+      renderUpdateStatus(info);
+    } catch (e) {
+      $('#updateStatus').textContent = 'Gagal memeriksa: ' + ((e && e.message) || e);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('#btnOpenRepo').addEventListener('click', async () => {
+    const url = await DB.getUpdateCheckUrl();
+    const m = /raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\//.exec(url);
+    const page = m ? 'https://github.com/' + m[1] + '/' + m[2] : url;
+    chrome.tabs.create({ url: page });
+  });
+
+  DB.getUpdateInfo().then(renderUpdateStatus);
+
   // Panduan Cepat: tombol sembunyikan/tampilkan isi — judul panel tetap terlihat,
   // dan posisi terakhir (collapsed/expanded) diingat saat halaman dibuka lagi.
   const guide = $('.guide');

@@ -25,7 +25,8 @@ Tanpa server, tanpa helper, tanpa build step — cukup **Load unpacked**.
 - **Keamanan** — field password bisa dienkripsi (AES-GCM + PBKDF2) dengan passphrase milikmu; passphrase tidak pernah disimpan.
 - **Keamanan data** — auto backup ke folder pilihanmu (termasuk folder cloud), export/import JSON, fill log sebagai jejak pengujian.
 - **Baris dinamis & select AJAX** — baris tabel `name="x[]"` yang hilang dibuat ulang otomatis; opsi select AJAX yang tidak ada di DOM dibuat ulang dari teks tersimpan.
-- **Update profil otomatis (opsional)** — saat capture menemukan profil serupa, profil itu bisa diperbarui otomatis tanpa klik manual (default OFF).
+- **Perbarui profil otomatis (opsional)** — saat capture menemukan profil serupa, profil itu bisa diperbarui otomatis tanpa klik manual (default OFF).
+- **Cek update otomatis (opsional)** — extension memeriksa sendiri ketersediaan versi baru dan menandai ikonnya bila ada (default OFF).
 
 ---
 
@@ -57,7 +58,8 @@ Kelola profil, grup, filter, enkripsi, backup, dan log ada di halaman **⚙ Kelo
 | Izinkan tombol FP digeser | Tombol FP bisa ditarik ke mana saja | OFF |
 | Grup sesuai URL | Hanya tampilkan grup yang cocok dengan halaman aktif | ON |
 | Fokus Capture ke modal | Saat modal terbuka, Capture hanya mengambil field di dalam modal | ON |
-| Update profil otomatis | Capture yang menemukan profil serupa langsung memperbaruinya (section sendiri di Kelola) | OFF |
+| Perbarui profil otomatis | Capture yang menemukan profil serupa langsung memperbaruinya (section sendiri di Kelola) | OFF |
+| Update otomatis | Periksa versi baru extension tiap 6 jam dari sumber versi (bisa diedit); ikon diberi tanda bila ada yang lebih baru | OFF |
 
 ## Privasi & Penyimpanan
 

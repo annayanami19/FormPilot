@@ -9,7 +9,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ### Ditambah
 
-- **Update profil otomatis (default OFF)** — saat capture menemukan profil serupa (URL cocok + field bertumpuk), profil itu kini bisa diperbarui **otomatis** tanpa perlu mengklik tombol 🔄 satu per satu. Punya **section sendiri** di halaman Kelola ("Update Otomatis", di bawah Backup Otomatis) berisi toggle ON/OFF + penjelasan — tidak dicampur ke checkbox Pengaturan. Maksimal 5 profil serupa teratas yang diperbarui, dan hasilnya dilaporkan di panel/popup.
+- **Update otomatis extension (default OFF)** — pemeriksaan versi baru tiap 6 jam (alarm) dengan sumber default `manifest.json` di branch `main` repo GitHub (URL bisa diedit ke server internal mana pun). Bila ada versi lebih baru: ikon extension diberi badge "BARU", dan section **Update Otomatis** di Kelola menyediakan tombol "🔄 Periksa sekarang" + "⬇ Buka halaman unduhan".
+- **Perbarui profil otomatis (default OFF)** — saat capture menemukan profil serupa (URL cocok + field bertumpuk), profil itu kini bisa diperbarui **otomatis** tanpa perlu mengklik tombol 🔄 satu per satu. Punya **section sendiri** di halaman Kelola ("Perbarui Profil Otomatis") — terpisah dari checkbox Pengaturan. Maksimal 5 profil serupa teratas yang diperbarui, dan hasilnya dilaporkan di panel/popup.
 
 ### Diubah
 
