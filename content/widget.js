@@ -600,6 +600,12 @@
       .filter((r) => !r.ok && !r.skipped)
       .map((r) => (r.label || r.selector) + (r.reason ? ' — ' + r.reason : ''));
     let msg = '✔ ' + res.filled + ' field terisi.';
+    const stale = res.results.filter((r) => r.ok && r.stale);
+    if (stale.length) {
+      msg +=
+        ' ⚠ ' + stale.length + ' tampilan widget tidak ikut (' +
+        stale.map((r) => r.label + ': ' + r.stale).join(', ') + ')';
+    }
     if (skipped) msg += ' ⏭ ' + skipped + ' diisi manual (upload file).';
     if (res.failed) msg += ' ✖ ' + res.failed + ' gagal: ' + fails.join(', ');
     showResult(msg, res.failed === 0 ? 'ok' : 'warn');

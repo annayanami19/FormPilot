@@ -71,21 +71,32 @@
     return items;
   }
 
-  /* Pilih nilai lewat UI widget: cari opsi yang cocok (berdasarkan value,
-     lalu teks) di dropdown widget dan simulasi klik — mousedown/mouseup/click
-     sekaligus karena tiap widget mendengarkan jenis event berbeda dan
-     sebagian memakai delegasi ke wadah dropdown. Return true hanya bila
-     nilai benar-benar terpasang setelahnya (cek state native + item widget).
+  /* Kirim rangkaian event mouse lengkap — tiap widget mendengarkan jenis
+     berbeda (mousedown/mouseup/click) dan sebagian memakai delegasi ke
+     wadah dropdown, jadi event dibuat bubbles. */
+  function mouseBurst(target) {
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      target.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
+      );
+    }
+  }
+
+  /* Pilih nilai lewat UI widget, meniru alur user asli: buka dropdown-nya
+     dulu (sebagian widget membangun/menyegarkan isi dropdown saat terbuka —
+     node opsi lama bisa jadi node mati), ambil ulang node opsinya, baru
+     diklik. Return {ok, why} — why berisi titik gagalnya untuk diagnostik.
      Ini satu-satunya jalur yang menjamin tampilan widget ikut terisi:
      TomSelect dkk tidak mendengarkan event 'change' pada field asli —
      aliran datanya satu arah (widget → native). */
   function widgetPick(el, value, text) {
     const wrap = widgetWrapOf(el);
-    if (!wrap) return false;
+    if (!wrap) return { ok: false, why: 'wrapper-widget-tidak-ditemukan' };
     const attr = String(value).replace(/[\\"]/g, '\\$&');
-    let opt =
+    const findOpt = () =>
       wrap.querySelector('[data-selectable][data-value="' + attr + '"]') ||
       wrap.querySelector('[data-value="' + attr + '"]');
+    let opt = findOpt();
     if (!opt && text) {
       const want = String(text).trim().toLowerCase();
       opt =
@@ -93,17 +104,30 @@
           (o) => (o.textContent || '').trim().toLowerCase() === want
         ) || null;
     }
-    if (!opt) return false;
-    for (const type of ['mousedown', 'mouseup', 'click']) {
-      opt.dispatchEvent(
-        new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
-      );
+    if (!opt) return { ok: false, why: 'opsi-tidak-ditemukan-di-widget' };
+
+    const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
+    if (dd && getComputedStyle(dd).display === 'none') {
+      const ctl = wrap.querySelector('.ts-control, .choices');
+      if (ctl) mouseBurst(ctl); // buka dropdown seperti klik user
+      opt = findOpt() || opt; // node terbaru bila isi dropdown dibangun ulang
     }
-    return (
+    mouseBurst(opt);
+
+    const pickedNow =
       el.value === String(value) ||
       !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
-      !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]')
-    );
+      !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]');
+    if (!pickedNow && dd && getComputedStyle(dd).display !== 'none') {
+      // gagal pilih — tutup lagi dropdown yang sempat terbuka
+      const ci = wrap.querySelector('input');
+      if (ci) {
+        ci.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+        );
+      }
+    }
+    return pickedNow ? { ok: true } : { ok: false, why: 'klik-opsi-tak-berdampak' };
   }
 
   /* ---------- selector ---------- */
@@ -562,13 +586,16 @@
         const wanted = (Array.isArray(field.value) ? field.value : [field.value]).map(String);
 
         /* Jalur widget dulu: klik opsi di UI widget-nya agar state internal
-           dan tampilannya ikut terisi. Bila widget tidak mau (opsi tak ada di
-           dropdown, dsb.) — jatuh ke jalur native di bawah. */
+           dan tampilannya ikut terisi. Bila widget tidak mau — catat titik
+           gagalnya untuk diagnostik, lalu jatuh ke jalur native di bawah. */
+        let widgetWhy = '';
         if (widgetWrapOf(el)) {
           const targets = el.multiple ? wanted : wanted.slice(0, 1);
           let picked = 0;
           for (let i = 0; i < targets.length; i++) {
-            if (widgetPick(el, targets[i], i === 0 ? field.text : '')) picked++;
+            const r = widgetPick(el, targets[i], i === 0 ? field.text : '');
+            if (r.ok) picked++;
+            else widgetWhy = r.why;
           }
           if (targets.length && picked === targets.length) {
             flash(el, true);
@@ -622,7 +649,15 @@
         el.blur();
       }
       flash(el, true);
-      return { selector: field.selector, label: field.label || '', ok: true };
+      // Jalur native berhasil tapi jalur widget gagal → nilai masuk di field
+      // asli, namun tampilan widget kemungkinan tidak ikut — tandai agar
+      // user tahu hasilnya belum 100% sinkron dengan widget.
+      return {
+        selector: field.selector,
+        label: field.label || '',
+        ok: true,
+        ...(widgetWhy ? { stale: 'widget: ' + widgetWhy } : {}),
+      };
     } catch (e) {
       return fail(String((e && e.message) || e), el);
     }
