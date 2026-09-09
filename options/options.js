@@ -830,6 +830,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#setCaptureModal').checked = await DB.getCaptureModalOnly();
   $('#setCaptureModal').addEventListener('change', (e) => DB.setCaptureModalOnly(e.target.checked));
 
+  $('#setAutoUpdate').checked = await DB.getAutoUpdateProfiles();
+  $('#setAutoUpdate').addEventListener('change', (e) => DB.setAutoUpdateProfiles(e.target.checked));
+
   // Panduan Cepat: tombol sembunyikan/tampilkan isi — judul panel tetap terlihat,
   // dan posisi terakhir (collapsed/expanded) diingat saat halaman dibuka lagi.
   const guide = $('.guide');

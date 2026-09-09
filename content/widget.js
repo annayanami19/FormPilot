@@ -304,6 +304,24 @@
       });
   }
 
+  /* Sama seperti gated(), tapi berbentuk Promise — resolve true bila aksi
+     selesai dijalankan (langsung atau setelah passphrase), false bila
+     tidak memungkinkan. Dipakai jalur update otomatis yang perlu
+     menunggu satu per satu. */
+  function gatedPromise(fields, mode, fn) {
+    return new Promise((resolve) => {
+      gated(fields, mode, async (copy) => {
+        try {
+          await fn(copy);
+          resolve(copy !== false);
+        } catch (e) {
+          showResult('Gagal: ' + e.message, 'err');
+          resolve(false);
+        }
+      });
+    });
+  }
+
   /* Form passphrase dibuat LAZY (saat pertama kali diminta), bukan saat
      widget lahir. Alasan: input type="password" yang selalu ada di DOM
      membuat password manager browser mengira halaman punya form login —
@@ -661,6 +679,22 @@
     } catch {
       /* kandidat update opsional — jangan ganggu capture */
     }
+    let auto = false;
+    if (cands.length) {
+      try {
+        auto = await DB.getAutoUpdateProfiles();
+      } catch {
+        /* setting tak terbaca — pakai jalur manual */
+      }
+    }
+    if (auto) {
+      try {
+        await autoUpdateCandidates(cands); // tanpa menampilkan form capture
+      } catch {
+        /* kegagalan update otomatis tidak boleh menggagalkan capture */
+      }
+      return;
+    }
     renderUpdateCandidates(cands);
     capWrap.style.display = 'block';
     capName.focus();
@@ -702,6 +736,38 @@
     capWrap.style.display = 'none';
     await renderList();
     showResult('Profile "' + p.name + '" diperbarui (' + p.fields.length + ' field).', 'ok');
+  }
+
+  /* Update otomatis (setting "Update Otomatis" di Kelola, default OFF):
+     versi otomatis dari tombol 🔄 Perbarui — timpa semua kandidat profil
+     serupa dengan hasil capture sekarang, lalu laporkan ringkasannya. */
+  async function autoUpdateCandidates(cands) {
+    const capFields = pending ? pending.fields : []; // snapshot sebelum pending di-reset
+    const names = [];
+    let failed = 0;
+    for (const c of cands.slice(0, 5)) {
+      const p = (await DB.getProfiles()).find((x) => x.id === c.profile.id);
+      if (!p) continue;
+      const ok = await gatedPromise(capFields, 'store', async (fields) => {
+        p.fields = fields;
+        p.updatedAt = Date.now();
+        await DB.upsertProfile(p);
+      });
+      if (ok) names.push(p.name);
+      else failed++;
+    }
+    pending = null;
+    clearCapHighlight();
+    capUpd.style.display = 'none';
+    capWrap.style.display = 'none';
+    await renderList();
+    showResult(
+      names.length
+        ? '🔄 ' + names.length + ' profile serupa otomatis diperbarui: ' + names.join(', ') +
+          (failed ? ' — ' + failed + ' gagal.' : '.')
+        : 'Update otomatis: tidak ada profile yang berhasil diperbarui.',
+      names.length ? 'ok' : 'err'
+    );
   }
 
   async function saveCapture() {

@@ -130,6 +130,20 @@
     </section>
 
     <section>
+      <h2>Update Otomatis</h2>
+      <label class="chk">
+        <input type="checkbox" id="setAutoUpdate" />
+        Saat capture menemukan profile serupa, perbarui profile itu secara otomatis (tanpa klik tombol 🔄 satu per satu)
+      </label>
+      <p class="hint" style="margin-top: 8px;">
+        "Profile serupa" = URL pattern cocok <strong>dan</strong> ada field yang sama dengan hasil capture —
+        maksimal 5 teratas, sama seperti daftar tombol 🔄 Perbarui. Field profile ditimpa dengan hasil capture
+        terbaru dan hasilnya dilaporkan di panel/popup. <strong>Default mati</strong> karena efeknya langsung
+        menulis data — nyalakan hanya bila alur kerjamu memang selalu menimpa profile serupa saat capture ulang.
+      </p>
+    </section>
+
+    <section>
       <h2>Fill Log <button id="btnClearLog" class="small danger">Hapus log</button></h2>
       <div class="table-scroll">
         <table id="logTable">
