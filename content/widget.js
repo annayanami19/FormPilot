@@ -73,6 +73,40 @@
     }
   }
 
+  /* ---------- selalu terdepan (top layer) ---------- */
+
+  /* Modal native halaman (<dialog>.showModal(), showPopover()) dirender
+     di TOP LAYER — di atas z-index berapa pun, termasuk 2147483647 milik
+     widget. Satu-satunya cara selalu terdepan adalah ikut masuk top layer.
+     Urutan di dalamnya = urutan masuk, jadi bila dialog halaman terbuka
+     belakangan, assertTop() (interval) mengangkat widget lagi ke puncak. */
+  const TOP_CHECK_MS = 700; // interval penjaga urutan top layer
+
+  function canEnterTopLayer() {
+    return !!host && typeof host.showPopover === 'function';
+  }
+
+  function showTopLayer() {
+    if (!canEnterTopLayer()) return;
+    try {
+      host.hidePopover(); // lepaskan dulu bila sedang terbuka…
+    } catch {
+      /* sebagian implementasi menolak hide saat memang tertutup */
+    }
+    try {
+      host.showPopover(); // …lalu masuk lagi di urutan paling atas
+    } catch {
+      /* gagal naik — z-index max tetap jadi lapisan cadangan */
+    }
+  }
+
+  function assertTop() {
+    if (!canEnterTopLayer() || pDown || document.visibilityState !== 'visible') return;
+    const r = fab.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (hit && hit !== host) showTopLayer(); // ada yang menutupi tombol FP
+  }
+
   const CSS = `
     .qa-fab {
       position: absolute; left: 0; top: 0; width: 44px; height: 44px; padding: 0;
@@ -710,6 +744,10 @@
     host.style.cssText =
       'all:initial; position:fixed; width:' + FAB_SIZE + 'px; height:' + FAB_SIZE + 'px;' +
       'right:' + EDGE + 'px; bottom:' + EDGE + 'px; z-index:2147483647;';
+    /* popover="manual" = tiket masuk top layer browser (lihat showTopLayer).
+       all:initial di atas sekalian menetralkan style UA milik popover
+       (display:none saat tertutup, inset/margin auto saat terbuka). */
+    if (typeof host.showPopover === 'function') host.popover = 'manual';
     const shadow = host.attachShadow({ mode: 'closed' });
 
     const style = document.createElement('style');
@@ -846,7 +884,10 @@
     fab.addEventListener('click', onFabClick);
     shadow.appendChild(fab);
 
-    (document.body || document.documentElement).appendChild(host);
+    // Tempel di <html>, bukan <body> — bebas dari stacking context /
+    // transform level body yang bisa menjebak widget di bawah overlay.
+    document.documentElement.appendChild(host);
+    showTopLayer();
     applyDragState();
   }
 
@@ -878,6 +919,8 @@
       if (!extValid()) teardownStale();
     }
   });
+
+  setInterval(assertTop, TOP_CHECK_MS);
 
   safeRun(async () => {
     const on = await DB.getWidgetEnabled();
