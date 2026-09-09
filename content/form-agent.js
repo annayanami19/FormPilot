@@ -82,14 +82,17 @@
     }
   }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
   /* Pilih nilai lewat UI widget, meniru alur user asli: buka dropdown-nya
-     dulu (sebagian widget membangun/menyegarkan isi dropdown saat terbuka —
-     node opsi lama bisa jadi node mati), ambil ulang node opsinya, baru
-     diklik. Return {ok, why} — why berisi titik gagalnya untuk diagnostik.
+     dulu, TUNGU isi dropdown selesai dirender (render TomSelect tidak
+     sinkron — inilah sebabnya perlu retry beberapa tick; tanpa itu opsi
+     baru ketemu pada klik Fill berikutnya), klik opsinya, lalu verifikasi.
+     Return {ok, why} — why berisi titik gagalnya untuk diagnostik.
      Ini satu-satunya jalur yang menjamin tampilan widget ikut terisi:
      TomSelect dkk tidak mendengarkan event 'change' pada field asli —
      aliran datanya satu arah (widget → native). */
-  function widgetPick(el, value, text) {
+  async function widgetPick(el, value, text) {
     const wrap = widgetWrapOf(el);
     if (!wrap) return { ok: false, why: 'wrapper-widget-tidak-ditemukan' };
     const attr = String(value).replace(/[\\"]/g, '\\$&');
@@ -105,28 +108,30 @@
         ) || null
       );
     };
+    const pickedNow = () =>
+      el.value === String(value) ||
+      !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
+      !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]');
 
-    // Isi dropdown lazim dibangun/diperbarui SAAT dropdown terbuka
-    // (refreshOptions pada TomSelect) — pada form yang barusan dibuka,
-    // dropdown belum pernah dibuka dan isinya masih kosong. Maka: kalau
-    // opsi tidak ketemu sementara dropdown tertutup, buka dulu seperti
-    // klik user, baru cari ulang node opsinya.
     const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
     const isOpen = () => dd && getComputedStyle(dd).display !== 'none';
     let opt = findOpt() || findOptByText();
     if (!opt && dd && !isOpen()) {
       const ctl = wrap.querySelector('.ts-control, .choices');
-      if (ctl) mouseBurst(ctl); // buka dropdown
-      opt = findOpt() || findOptByText(); // ambil node hasil render terbaru
+      if (ctl) mouseBurst(ctl); // buka dropdown seperti klik user
+      for (const wait of [0, 80, 250]) {
+        await sleep(wait); // render isi dropdown tidak sinkron — beri waktu
+        opt = findOpt() || findOptByText();
+        if (opt) break;
+      }
     }
     if (!opt) return { ok: false, why: 'opsi-tidak-ditemukan-di-widget' };
     mouseBurst(opt);
-
-    const pickedNow =
-      el.value === String(value) ||
-      !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
-      !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]');
-    if (!pickedNow && dd && isOpen()) {
+    for (const wait of [0, 120]) {
+      await sleep(wait);
+      if (pickedNow()) return { ok: true };
+    }
+    if (dd && isOpen()) {
       // gagal pilih — tutup lagi dropdown yang sempat terbuka
       const ci = wrap.querySelector('input');
       if (ci) {
@@ -135,7 +140,7 @@
         );
       }
     }
-    return pickedNow ? { ok: true } : { ok: false, why: 'klik-opsi-tak-berdampak' };
+    return { ok: false, why: 'klik-opsi-tak-berdampak' };
   }
 
   /* ---------- selector ---------- */
@@ -552,7 +557,7 @@
     }
   }
 
-  function fillOne(field) {
+  async function fillOne(field) {
     const fail = (reason, el, extra) => {
       if (el) flash(el, false);
       return {
@@ -607,7 +612,7 @@
           const targets = el.multiple ? wanted : wanted.slice(0, 1);
           let picked = 0;
           for (let i = 0; i < targets.length; i++) {
-            const r = widgetPick(el, targets[i], i === 0 ? field.text : '');
+            const r = await widgetPick(el, targets[i], i === 0 ? field.text : '');
             if (r.ok) picked++;
             else widgetWhy = r.why;
           }
@@ -677,9 +682,12 @@
     }
   }
 
-  function fill(values) {
+  async function fill(values) {
     backfillArrayRows(values || []);
-    const results = (values || []).map(fillOne);
+    // Sekuensial (bukan map paralel) — urutan field penting untuk select
+    // bertingkat, dan jalur widget kini butuh await.
+    const results = [];
+    for (const v of values || []) results.push(await fillOne(v));
     return {
       ok: true,
       results,
@@ -706,7 +714,12 @@
       );
       return true;
     } else if (msg.type === 'QA_FILL') {
-      sendResponse(fill(msg.values));
+      // fill kini async (menunggu render dropdown widget)
+      fill(msg.values).then(
+        (r) => sendResponse(r),
+        () => sendResponse({ ok: false })
+      );
+      return true;
     } else if (msg.type === 'QA_CLEAR_HL') {
       clearCaptureHighlight();
       sendResponse({ ok: true });

@@ -594,7 +594,7 @@
       ...f,
       value: typeof f.value === 'string' ? resolvePlaceholders(f.value) : f.value,
     }));
-    const res = api.fill(values);
+    const res = await api.fill(values);
     const skipped = res.skipped || 0;
     const fails = res.results
       .filter((r) => !r.ok && !r.skipped)
