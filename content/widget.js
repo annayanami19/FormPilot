@@ -75,12 +75,17 @@
 
   /* ---------- selalu terdepan (top layer) ---------- */
 
-  /* Modal native halaman (<dialog>.showModal(), showPopover()) dirender
-     di TOP LAYER — di atas z-index berapa pun, termasuk 2147483647 milik
-     widget. Satu-satunya cara selalu terdepan adalah ikut masuk top layer.
-     Urutan di dalamnya = urutan masuk, jadi bila dialog halaman terbuka
-     belakangan, assertTop() (interval) mengangkat widget lagi ke puncak. */
-  const TOP_CHECK_MS = 700; // interval penjaga urutan top layer
+  /* Modal native halaman (<dialog>.showModal()) dirender di TOP LAYER —
+     di atas z-index berapa pun — dan membuat SELURUH dokumen di luar
+     dialog INERT (terlihat tapi tak bisa diklik); showModal() juga memaksa
+     menutup semua popover yang terbuka. Strateginya dua lapis:
+     1. rehomeHost() — saat ada modal, pindahkan widget menjadi anak dialog
+        (keturunan dialog kebal inert); saat modal tertutup, kembali ke <html>.
+     2. showTopLayer()/assertTop() — promosikan widget ke top layer lewat
+        Popover API supaya render di atas isi dialog & backdrop, dan angkat
+        lagi ke puncak bila ada yang menutupi. Browser tanpa Popover API
+        tetap berjalan lewat re-parenting + z-index. */
+  const TOP_CHECK_MS = 700; // interval penjaga posisi & top layer
 
   function canEnterTopLayer() {
     return !!host && typeof host.showPopover === 'function';
@@ -100,8 +105,39 @@
     }
   }
 
+  /* Dialog modal aktif (yang terakhir di DOM). :modal hanya cocok untuk
+     dialog showModal() — dialog show()/open biasa tidak membuat halaman
+     inert sehingga tidak perlu ditumpangi. */
+  const HAS_MODAL_SELECTOR = (() => {
+    try {
+      return CSS.supports('selector(dialog:modal)');
+    } catch {
+      return false;
+    }
+  })();
+
+  function activeModalDialog() {
+    const sel = HAS_MODAL_SELECTOR ? 'dialog:modal' : 'dialog[open]';
+    const list = document.querySelectorAll(sel);
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function rehomeHost() {
+    if (!host) return;
+    if (!host.isConnected) {
+      document.documentElement.appendChild(host); // node tertelan swap halaman — pakai lagi
+    }
+    const target = activeModalDialog() || document.documentElement;
+    if (host.parentElement !== target) {
+      target.appendChild(host); // appendChild memindahkan node beserta shadow-nya
+      showTopLayer(); // langsung naik, jangan menunggu interval
+    }
+  }
+
   function assertTop() {
-    if (!canEnterTopLayer() || pDown || document.visibilityState !== 'visible') return;
+    if (!host || pDown || document.visibilityState !== 'visible') return;
+    rehomeHost();
+    if (!canEnterTopLayer()) return;
     const r = fab.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     if (hit && hit !== host) showTopLayer(); // ada yang menutupi tombol FP
@@ -921,6 +957,16 @@
   });
 
   setInterval(assertTop, TOP_CHECK_MS);
+
+  /* Reaksi instan tanpa menunggu interval: event "close" tidak membubble
+     tapi tetap tertangkap lewat capture; pembukaan dialog tidak punya
+     event sendiri, jadi diamati lewat perubahan atribut open di dokumen. */
+  document.addEventListener('close', () => rehomeHost(), true);
+  new MutationObserver(rehomeHost).observe(document.documentElement, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['open'],
+  });
 
   safeRun(async () => {
     const on = await DB.getWidgetEnabled();
