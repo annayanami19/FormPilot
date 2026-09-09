@@ -71,6 +71,41 @@
     return items;
   }
 
+  /* Pilih nilai lewat UI widget: cari opsi yang cocok (berdasarkan value,
+     lalu teks) di dropdown widget dan simulasi klik — mousedown/mouseup/click
+     sekaligus karena tiap widget mendengarkan jenis event berbeda dan
+     sebagian memakai delegasi ke wadah dropdown. Return true hanya bila
+     nilai benar-benar terpasang setelahnya (cek state native + item widget).
+     Ini satu-satunya jalur yang menjamin tampilan widget ikut terisi:
+     TomSelect dkk tidak mendengarkan event 'change' pada field asli —
+     aliran datanya satu arah (widget → native). */
+  function widgetPick(el, value, text) {
+    const wrap = widgetWrapOf(el);
+    if (!wrap) return false;
+    const attr = String(value).replace(/[\\"]/g, '\\$&');
+    let opt =
+      wrap.querySelector('[data-selectable][data-value="' + attr + '"]') ||
+      wrap.querySelector('[data-value="' + attr + '"]');
+    if (!opt && text) {
+      const want = String(text).trim().toLowerCase();
+      opt =
+        [...wrap.querySelectorAll('[data-selectable], .choices__item--choice')].find(
+          (o) => (o.textContent || '').trim().toLowerCase() === want
+        ) || null;
+    }
+    if (!opt) return false;
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      opt.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0 })
+      );
+    }
+    return (
+      el.value === String(value) ||
+      !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
+      !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]')
+    );
+  }
+
   /* ---------- selector ---------- */
 
   function isUnique(sel) {
@@ -525,6 +560,22 @@
         fire(el, 'change');
       } else if (t === 'select') {
         const wanted = (Array.isArray(field.value) ? field.value : [field.value]).map(String);
+
+        /* Jalur widget dulu: klik opsi di UI widget-nya agar state internal
+           dan tampilannya ikut terisi. Bila widget tidak mau (opsi tak ada di
+           dropdown, dsb.) — jatuh ke jalur native di bawah. */
+        if (widgetWrapOf(el)) {
+          const targets = el.multiple ? wanted : wanted.slice(0, 1);
+          let picked = 0;
+          for (let i = 0; i < targets.length; i++) {
+            if (widgetPick(el, targets[i], i === 0 ? field.text : '')) picked++;
+          }
+          if (targets.length && picked === targets.length) {
+            flash(el, true);
+            return { selector: field.selector, label: field.label || '', ok: true };
+          }
+        }
+
         if (el.multiple) {
           [...el.options].forEach((o) => {
             o.selected = wanted.includes(o.value) || wanted.includes(o.text.trim());
