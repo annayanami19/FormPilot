@@ -92,6 +92,12 @@ Bisa dari **dua tempat**, hasilnya sama:
 - Checkbox/radio: hanya yang **tercentang** yang dicatat
 - Tidak diambil: hidden, file upload, tombol, field disabled/readonly
 
+### Capture di halaman dengan modal pop-up
+
+Saat ada modal pop-up (`<dialog>`) terbuka, capture **fokus ke modal**: hanya field di dalam modal yang direkam — filter, pagination, dan field lain di halaman belakang diabaikan supaya profil tidak tercemar. Bisa dimatikan di ⚙ Kelola → Pengaturan (*"Saat modal pop-up terbuka, Capture hanya mengambil field di dalam modal"*, default aktif, berlaku tanpa reload). Kalau modal terbuka tapi fieldnya masih kosong, muncul pesan pengingat untuk mengisi dulu sebelum capture.
+
+Widget select modern (**TomSelect, Select2, Choices.js**) yang menyembunyikan field aslinya tetap terbaca: capture mengenali field lewat tampilan widget-nya dan membaca item terpilih langsung dari widget bila perlu — generik, tanpa tergantung halaman tertentu. Highlight hijau capture kini tampil melingkupi widget-nya (bukan field tersembunyi di baliknya).
+
 ### Memperbarui profil lama
 
 Saat capture, FormPilot mendeteksi **profil serupa** (URL cocok + ada field yang sama) dan menampilkan tombol **🔄 Perbarui (N field sama)** — klik untuk menimpa field profil lama dengan hasil capture sekarang, tanpa membuat profil baru.
@@ -105,10 +111,15 @@ Saat capture, FormPilot mendeteksi **profil serupa** (URL cocok + ada field yang
 3. Field terisi otomatis dan **berkelip garis hijau**; field bermasalah **garis merah**.
 4. Ringkasan hasil muncul:
    - `✔ N field terisi.`
+   - `⚠ N tampilan widget tidak ikut (<field>: <alasan>)` — field asli sudah terisi (form submit benar), tapi tampilan widget select enhanced-nya tidak ikut tersinkron; detail penyebabnya ada dalam kurung.
    - `⏭ N diisi manual (upload file)` — input file memang tidak bisa diisi otomatis (batasan browser).
    - `✖ N gagal: <field> — <alasan>` — mis. field tidak ditemukan, opsi select hilang, field disabled.
 
 Setiap fill juga tercatat di **Fill Log** halaman Kelola (lihat [bagian 8](#8-halaman-kelola)) — berguna sebagai jejak pengujian.
+
+### Field select dengan widget (TomSelect dkk.)
+
+Form modern sering mengganti `<select>` dengan widget yang tidak mendengarkan event `change` pada field asli. Karena itu FormPilot mengisi lewat UI widget-nya sendiri: **membuka dropdown → menunggu isinya selesai dirender → mengklik opsi yang cocok** — tampilan widget ikut menampilkan item terpilih. Dropdown berkedip terbuka sebentar saat fill; itu normal.
 
 ---
 
@@ -123,6 +134,7 @@ Tombol **FP** di pojok kanan bawah → panel berisi daftar profil tergroup:
 - **Nonaktifkan** — hilangkan tombol FP dari semua halaman (aktifkan ulang dari halaman Kelola → Pengaturan).
 - Profil yang URL pattern-nya **cocok dengan halaman aktif** ditandai badge hijau `match`.
 - Panel otomatis membuka ke arah yang aman mengikuti posisi tombol (kiri/kanan, atas/bawah).
+- **Selalu terdepan di atas modal pop-up** — saat halaman membuka modal (`<dialog>`, yang biasanya membuat halaman di luarnya tak bisa diklik), panel & tombol FP tetap tampil di atasnya dan **tetap bisa diklik**: panel sementara menjadi bagian dari dialog dan kembali normal begitu modal ditutup. Jadi kamu bisa tetap Fill dari panel saat form target berada di dalam modal.
 
 ---
 
@@ -150,6 +162,7 @@ Buka dari **⚙** di panel/popup, atau klik kanan ikon extension → **Options**
 | Dark mode | Mode gelap halaman Kelola |
 | Izinkan tombol FP digeser | ON = tombol FP bisa digeser ke mana saja (posisi tersimpan); OFF = terkunci di pojok kanan bawah |
 | Grup sesuai URL | Di popup & panel, tampilkan **hanya grup yang punya profil cocok dengan halaman aktif** (default aktif) |
+| Fokus Capture ke modal | Saat modal pop-up terbuka, Capture hanya mengambil field di dalam modal — field halaman belakang (filter/pagination) diabaikan (default aktif) |
 
 ### 8.2 Grup
 
@@ -277,7 +290,7 @@ Placeholder tak dikenal dibiarkan apa adanya.
 
 - **Upload file** tidak bisa diisi otomatis (keamanan browser) — diisi manual; sisanya otomatis.
 - **Halaman internal browser** (`chrome://`, web store, dll.) tidak didukung untuk capture/fill.
-- **Select2 AJAX**: opsi yang tidak ada di DOM dibuat ulang otomatis dari teks tersimpan saat fill; select bertingkat yang ter-reset oleh AJAX diberi kesempatan terpasang ulang.
+- **Select2 AJAX**: opsi yang tidak ada di DOM dibuat ulang otomatis dari teks tersimpan saat fill; select bertingkat yang ter-reset oleh AJAX diberi kesempatan terpasang ulang. Widget **TomSelect & Choices.js** juga didukung (capture + fill lewat UI widget-nya). Batasan: TomSelect **multi berbasis AJAX** (opsi muncul setelah mengetik) terisi di field aslinya — form tetap submit benar — tapi tampilan widgetnya belum ikut (ditandai peringatan ⚠ saat fill).
 - **Baris dinamis** tabel (input `name="x[]"`): baris yang hilang dicoba dibuat ulang otomatis (maks. 10 baris) memakai tombol add asli aplikasi, dengan fallback sintesis baris.
 - Kriptografi di halaman **http** tidak didukung (lihat bagian 10).
 
@@ -288,6 +301,8 @@ Placeholder tak dikenal dibiarkan apa adanya.
 | Gejala | Solusi |
 |---|---|
 | Tombol FP / popup tidak muncul atau "Extension context invalidated" setelah reload extension | **Refresh halaman web**-nya — instance lama kehilangan konteks extension dan akan membersihkan dirinya sendiri |
+| Tombol FP tertutup modal / tidak bisa diklik saat modal pop-up terbuka | **Refresh halaman web**-nya — panel akan otomatis pindah ke dalam modal dan tetap bisa diklik. Pastikan juga browser cukup baru (Popover API: Chrome/Edge 114+) |
+| Hasil fill muncul `⚠ tampilan widget tidak ikut` | Field asli sudah terisi (form tetap submit benar), tapi tampilan widget (TomSelect dkk.) tidak ikut — baca alasan dalam kurungnya. Untuk TomSelect multi berbasis AJAX ini masih batasan (lihat bagian 13) |
 | Profil tidak muncul di popup/panel | Cek **URL Pattern** profil, dan cek pengaturan **"grup sesuai URL"** — coba cari lewat 🔍 (pencarian mengabaikan filter URL) |
 | Fill gagal: "Field tidak ditemukan" | Struktur halaman berubah → capture ulang, atau perbaiki selector di editor |
 | Fill gagal: "Opsi … tidak ditemukan" | Daftar opsi select berubah → capture ulang field tersebut |
@@ -305,4 +320,4 @@ Placeholder tak dikenal dibiarkan apa adanya.
 
 ---
 
-*FormPilot v0.12.0 · Chrome & Edge (Manifest V3) · Load unpacked, tanpa build step*
+*FormPilot v0.13.0 · Chrome & Edge (Manifest V3) · Load unpacked, tanpa build step*

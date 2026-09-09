@@ -91,6 +91,15 @@ Halaman ⚙ Kelola → Daftar Profile kini punya **kotak filter** di atas tabel,
 - **Setting "grup sesuai URL" (default ON)** — di ⚙ Kelola → Pengaturan ada checkbox baru: kalau aktif, popup & panel cepat hanya menampilkan grup yang punya profile cocok dengan URL halaman aktif; grup lain disembunyikan supaya daftar selalu relevan. Matikan checkboxnya untuk melihat semua grup. Kalau tidak ada satupun grup yang cocok, muncul pesan penjelasan (bukan daftar kosong tanpa konteks).
 - **Panduan penggunaan di halaman Kelola** — ruang kosong di sisi kanan halaman ⚙ Kelola kini berisi kolom **📘 Panduan Cepat** (cara capture, fill, kelola, placeholder dinamis & backup). Layout-nya dua kolom; kolom panduan sticky mengikuti scroll di layar lebar dengan **tinggi dibatasi setinggi viewport** — sisanya discroll di dalam panel, jadi tidak pernah menimpa navbar dan selalu terlihat utuh. Di layar sempit panduan turun ke bawah konten secara otomatis.
 
+## Modal Pop-up & Widget Select Enhanced (v0.13)
+
+- **Panel & tombol FP selalu terdepan di atas modal** — modal native (`<dialog>` + `showModal()`, umum di app DaisyUI/htmx/Angular) dirender di *top layer* browser dan membuat seluruh halaman di luar dialog *inert* (terlihat tapi tak bisa diklik). FormPilot kini ikut masuk *top layer* (Popover API) dan, saat modal terbuka, memindahkan dirinya sementara menjadi anak dialog — keturunan dialog kebal inert — lalu kembali ke `<html>` begitu modal ditutup. Penjaga otomatis menaikkan kembali panel bila ada yang menutupi, dan panel tetap hidup walau node-nya tertelan swap halaman (htmx/framework). Browser tanpa Popover API fallback ke z-index maksimum.
+- **Capture fokus modal (default ON)** — saat ada modal terbuka, capture hanya mengambil field **di dalam modal**; filter/pagination di halaman belakang tidak ikut terekam sehingga profil tidak tercemar. Bisa dimatikan di ⚙ Kelola → Pengaturan; berlaku langsung tanpa reload. Bila modal terbuka tapi belum ada field terisi di dalamnya, pesannya menjelaskan itu.
+- **Paham widget select enhanced (TomSelect / Select2 / Choices.js)** — banyak form modern mengganti `<select>` dengan widget yang menyembunyikan field aslinya. Capture mengenali field semacam itu (dianggap terlihat bila *wrapper widget*-nya terlihat) dan membaca nilai cadangan langsung dari DOM widget — lewat konvensi kelas ketiga widget tersebut, tanpa selector spesifik halaman, jadi bekerja di web mana pun.
+- **Fill select enhanced lewat UI widget-nya** — widget seperti TomSelect tidak mendengarkan event `change` pada field asli (aliran datanya satu arah, widget → native), jadi fill meniru klik user asli: **membuka dropdown → menunggu isinya selesai dirender → mengklik opsi yang cocok** → tampilan widget ikut menampilkan item terpilih. Dropdown berkedip terbuka sebentar saat fill — itu wajar.
+- **Highlight capture yang benar-benar terlihat** — highlight hijau kini ditempel ke tampilan widget yang tampak di layar (sebelumnya ke field asli yang disembunyikan widget sehingga outline-nya tak tampak).
+- **Hasil fill lebih jujur** — bila field asli terisi tapi tampilan widget tidak ikut tersinkron (mis. TomSelect multi berbasis AJAX), hasil fill menampilkan peringatan `⚠ … tampilan widget tidak ikut (alasan)` — bukan diam-diam dianggap sukses penuh.
+
 ## Placeholder Dinamis
 
 Nilai field bisa memakai template yang diresolve **saat fill** (bukan saat disimpan):
@@ -108,7 +117,7 @@ Nilai field bisa memakai template yang diresolve **saat fill** (bukan saat disim
 - **Data disimpan di `chrome.storage.local`** (storage internal extension):
   - ✅ Aman dari "Clear browsing data" biasa (cache/cookies).
   - ⚠️ **Hilang jika extension di-remove** atau profil browser dihapus → karena itu **Export JSON secara rutin**.
-- Field yang didukung: `input` (semua kecuali file), `textarea`, `select` (termasuk multi-select), `checkbox`, `radio`. Field **password ikut tercapture** dan ditandai `sensitive` (muncul peringatan di popup).
+- Field yang didukung: `input` (semua kecuali file), `textarea`, `select` (termasuk multi-select), `checkbox`, `radio` — termasuk select yang di-enhance widget (**TomSelect / Select2 / Choices.js**, lihat bagian v0.13). Field **password ikut tercapture** dan ditandai `sensitive` (muncul peringatan di popup).
 - Fill kompatibel dengan **React/Vue/Angular** — nilai diset via native setter + event `input`/`change` bubbling.
 - Jika developer mengubah struktur form dan selector kedaluwarsa: agent otomatis mencoba fallback selector lalu **rescue by label**; kalau masih gagal, perbaiki selector manual di **⚙ Kelola → Edit**.
 - Halaman `chrome://`, Web Store, dan sejenisnya tidak bisa di-capture/di-fill.
@@ -137,3 +146,4 @@ Setelah mengubah kode: buka `chrome://extensions` → klik **↻ Reload** pada k
 - Multi-value boundary (satu profil, banyak baris data — data-driven testing)
 - Skenario multi-step (isi beberapa halaman berurutan sebagai satu rangkaian)
 - Dukungan shadow DOM & iframe
+- Simulasi ketik-pilih untuk TomSelect multi berbasis AJAX (agar tampilan widgetnya ikut terisi)
