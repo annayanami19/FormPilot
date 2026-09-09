@@ -31,6 +31,46 @@
     return true;
   }
 
+  /* ---------- widget select enhanced (TomSelect / Select2 / Choices) ---------- */
+
+  /* Widget-family ini menyembunyikan field aslinya lalu membangun UI sendiri
+     TEPAT SETELAH field tersebut. Konvensi kelas ketiganya dipakai apa adanya
+     — tanpa selector spesifik halaman mana pun — supaya bekerja di web mana
+     pun yang memakai widget sejenis. */
+  const WIDGET_WRAP_SEL = '.ts-wrapper, .select2, .select2-container, .choices';
+
+  function widgetWrapOf(el) {
+    const sib = el.nextElementSibling;
+    return sib && sib.matches(WIDGET_WRAP_SEL) ? sib : null;
+  }
+
+  /* Field dianggap terlihat bila dirinya ATAU widget penampilnya terlihat —
+     field asli hasil enhance memang sengaja disembunyikan widget-nya
+     (ts-hidden-accessible, d-none, dll) padahal nilainya tetap hidup di sana. */
+  function isVisibleField(el) {
+    return isVisible(el) || isVisible(widgetWrapOf(el));
+  }
+
+  /* Item terpilih menurut DOM widget — sumber nilai cadangan untuk field
+     asli yang kosong (nilai multi/ajax kadang baru tersinkron saat submit). */
+  function widgetItemsOf(el) {
+    const wrap = widgetWrapOf(el);
+    if (!wrap) return [];
+    const nodes = wrap.querySelectorAll(
+      '.item[data-value], .choices__item--selected[data-value], .select2-selection__choice'
+    );
+    const items = [];
+    for (const n of nodes) {
+      const clean = n.cloneNode(true);
+      clean.querySelectorAll('.remove, svg, i, img').forEach((x) => x.remove());
+      const text = (clean.textContent || '').replace(/\s+/g, ' ').trim();
+      const value = n.getAttribute('data-value') || text;
+      if (!value && !text) continue;
+      items.push({ value, text });
+    }
+    return items;
+  }
+
   /* ---------- selector ---------- */
 
   function isUnique(sel) {
@@ -240,16 +280,23 @@
     const fields = [];
     const hitEls = []; // elemen terdeteksi — untuk highlight visual
     document.querySelectorAll(FILLABLE).forEach((el) => {
-      if (!isVisible(el) || !isCapturable(el)) return;
+      if (!isVisibleField(el) || !isCapturable(el)) return;
       const t = inputType(el);
 
+      // Nilai cadangan dari DOM widget select enhanced (TomSelect dkk) —
+      // dipakai bila field aslinya kosong/tersembunyi total.
+      let wItems = null;
       if (t === 'checkbox' || t === 'radio') {
         if (!el.checked) return; // hanya state terisi yang dicatat
       } else if (t === 'select') {
         const sel = [...el.selectedOptions].map((o) => o.value);
-        if (!sel.length || sel.every((v) => v === '')) return;
+        if (!sel.length || sel.every((v) => v === '')) {
+          wItems = widgetItemsOf(el);
+          if (!wItems.length) return;
+        }
       } else if (!String(el.value || '').trim()) {
-        return;
+        wItems = widgetItemsOf(el);
+        if (!wItems.length) return;
       }
 
       const { selector, fallbacks } = bestSelector(el);
@@ -268,13 +315,20 @@
         field.value = true;
         field.radioValue = el.value;
       } else if (t === 'select') {
-        field.value = el.multiple
-          ? [...el.selectedOptions].map((o) => o.value)
-          : el.value;
-        // teks opsi terpilih — dipakai saat fill untuk membuat opsi (select2)
-        field.text = ((el.selectedOptions[0] && el.selectedOptions[0].text) || '').trim();
+        if (wItems) {
+          field.value = wItems.length === 1 ? wItems[0].value : wItems.map((i) => i.value);
+          field.text = wItems.map((i) => i.text).join(', ');
+        } else {
+          field.value = el.multiple
+            ? [...el.selectedOptions].map((o) => o.value)
+            : el.value;
+          // teks opsi terpilih — dipakai saat fill untuk membuat opsi (select2)
+          field.text = ((el.selectedOptions[0] && el.selectedOptions[0].text) || '').trim();
+        }
       } else {
-        field.value = el.value;
+        field.value = wItems
+          ? wItems.map((i) => i.text).join(', ')
+          : el.value;
       }
       fields.push(field);
       hitEls.push(el);
@@ -323,7 +377,7 @@
     if (field.label) {
       const want = String(field.label).toLowerCase();
       const hits = [...document.querySelectorAll(FILLABLE)].filter(
-        (el) => isVisible(el) && labelFor(el).toLowerCase() === want
+        (el) => isVisibleField(el) && labelFor(el).toLowerCase() === want
       );
       if (hits.length === 1) return hits[0];
     }
