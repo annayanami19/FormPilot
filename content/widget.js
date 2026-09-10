@@ -21,6 +21,8 @@
   let searchInput = null;
   let searchTimer = null;
   let resultEl = null;
+  let logSec = null; // section log: judul "Log" + isi hasil (resultEl)
+  let showLog = false; // setting "tampilkan log" (Kelola) — default OFF
   let capWrap = null;
   let capTitle = null;
   let capName = null;
@@ -166,7 +168,11 @@
     }
     .qa-head button { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; }
     .qa-head-btns { display: flex; align-items: center; gap: 6px; }
-    .qa-body { overflow-y: auto; padding: 8px; }
+    /* Daftar & log sama-sama dibatasi tingginya (±4 item / ±6 baris) supaya
+       masing-masing punya scroll sendiri dan panel tetap ringkas — log panjang
+       tidak memanjangkan panel ke atas, daftar panjang tidak menggembungkan
+       panel ke bawah saat log tidak tampil. */
+    .qa-body { overflow-y: auto; padding: 8px; max-height: 15em; }
     .qa-search { padding: 8px 8px 2px; }
     .qa-search input {
       width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px;
@@ -207,7 +213,25 @@
       background: #fff; color: #1f2937; cursor: pointer; font-size: 12px; font-family: inherit;
     }
     .qa-foot .qa-primary { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; flex: 1; }
-    .qa-result { padding: 0 10px 8px; font-size: 12px; color: #065f46; }
+    /* Log hasil fill dibatasi ±6 baris dengan scroll sendiri — pesan panjang
+       (daftar field gagal) tidak boleh memanjangkan panel ke atas. */
+    /* Section log: judul kecil + garis sebagai pembatas visual dari daftar,
+       tombol ✕ untuk menutupnya secara manual. */
+    .qa-log-sec { border-top: 1px solid #f0f0f1; }
+    .qa-log-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 8px 5px 10px; border-bottom: 1px solid #f0f0f1;
+    }
+    .qa-log-title {
+      font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .qa-log-close {
+      background: none; border: none; color: #9ca3af; font-size: 12px; line-height: 1;
+      cursor: pointer; padding: 2px 5px; font-family: inherit;
+    }
+    .qa-log-close:hover { color: #374151; }
+    .qa-result { padding: 6px 10px 8px; font-size: 12px; color: #065f46; max-height: 9em; overflow-y: auto; }
     .qa-result.warn { color: #92400e; }
     .qa-result.err { color: #991b1b; }
     .qa-cap { padding: 8px 10px; border-top: 1px solid #f0f0f1; }
@@ -243,7 +267,9 @@
   function showResult(msg, kind) {
     resultEl.textContent = msg;
     resultEl.className = 'qa-result' + (kind && kind !== 'ok' ? ' ' + kind : '');
-    resultEl.style.display = 'block';
+    // Setting "tampilkan log" (Kelola, default OFF) menyembunyikan log biasa;
+    // pesan error tetap tampil supaya alur tidak buntu tanpa penjelasan.
+    logSec.style.display = showLog || kind === 'err' ? 'block' : 'none';
   }
 
   /* ---------- gerbang enkripsi (vault) ---------- */
@@ -347,7 +373,7 @@
     vaultGo.addEventListener('click', () => safeRun(submitVaultPass));
     vaultRow.appendChild(vaultGo);
     vaultWrap.append(vaultMsg, vaultInput, vaultRow);
-    panel.insertBefore(vaultWrap, resultEl); // posisi: setelah form capture
+    panel.insertBefore(vaultWrap, logSec); // posisi: setelah form capture, sebelum log
   }
 
   function showVaultForm(msg) {
@@ -644,6 +670,7 @@
   }
 
   async function startCapture() {
+    logSec.style.display = 'none'; // capture mulai — log hasil sebelumnya ditutup
     const api = window.__qaFormAgent;
     if (!api) {
       showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
@@ -826,7 +853,7 @@
         panel.style.bottom = FAB_SIZE + 10 + 'px';
       }
       panel.style.display = 'flex';
-      resultEl.style.display = 'none';
+      logSec.style.display = 'none';
       capWrap.style.display = 'none';
       capUpd.style.display = 'none';
       if (vaultWrap) vaultWrap.style.display = 'none'; // belum dibuat = tidak ada yang perlu disembunyikan
@@ -907,7 +934,18 @@
 
     listEl = el('div', 'qa-body');
     resultEl = el('div', 'qa-result');
-    resultEl.style.display = 'none';
+    logSec = el('div', 'qa-log-sec');
+    const logHead = el('div', 'qa-log-head');
+    logHead.appendChild(el('div', 'qa-log-title', '📋 Log'));
+    const logClose = el('button', 'qa-log-close', '✕');
+    logClose.type = 'button';
+    logClose.title = 'Tutup log';
+    logClose.addEventListener('click', () => {
+      logSec.style.display = 'none';
+    });
+    logHead.appendChild(logClose);
+    logSec.append(logHead, resultEl);
+    logSec.style.display = 'none';
 
     capWrap = el('div', 'qa-cap');
     capWrap.style.display = 'none';
@@ -983,7 +1021,7 @@
     offBtn.addEventListener('click', () => safeRun(disable));
     foot.append(capBtn, geserBtn, offBtn);
 
-    panel.append(head, searchWrap, listEl, capWrap, resultEl, foot);
+    panel.append(head, searchWrap, listEl, capWrap, logSec, foot);
     shadow.appendChild(panel);
 
     fab = el('button', 'qa-fab');
@@ -1028,6 +1066,10 @@
         }
         applyDragState();
       }
+      if (changes.showFillLog) {
+        showLog = !!changes.showFillLog.newValue; // setting berlaku langsung tanpa reload
+        if (!showLog && logSec) logSec.style.display = 'none';
+      }
     } catch (e) {
       if (!extValid()) teardownStale();
     }
@@ -1051,6 +1093,7 @@
     ensureWidget();
     dragEnabled = await DB.getWidgetDragEnabled();
     applyDragState();
+    showLog = await DB.getShowFillLog();
     if (dragEnabled) {
       const pos = await DB.getWidgetPos();
       if (pos) applyPos(pos);

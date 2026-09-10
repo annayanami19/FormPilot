@@ -45,7 +45,12 @@ async function ensureAgent(tabId) {
   }
 }
 
-function showResult(message, kind) {
+async function showResult(message, kind) {
+  // Setting "tampilkan log" mati (default) = log biasa tidak dimunculkan;
+  // pesan error tetap tampil supaya alur tidak buntu tanpa penjelasan.
+  // Riwayat fill tetap tercatat di bagian Fill Log halaman Kelola.
+  if (kind !== 'err' && !(await DB.getShowFillLog())) return;
+  $('#logSec').classList.remove('hidden'); // tampilkan section + judulnya
   const el = $('#fillResult');
   el.textContent = message;
   el.className = 'result ' + kind; // ok | warn | err
@@ -310,6 +315,7 @@ async function performFill(p, fields) {
 
 async function startCapture() {
   if (!TAB) return;
+  $('#logSec').classList.add('hidden'); // capture mulai — log hasil sebelumnya ditutup
   if (TAB.url && UNSUPPORTED.test(TAB.url)) {
     showResult('Halaman ini tidak mendukung capture.', 'err');
     return;
@@ -513,6 +519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderList();
 
   $('#btnCapture').addEventListener('click', startCapture);
+  $('#btnCloseLog').addEventListener('click', () => $('#logSec').classList.add('hidden'));
   $('#btnSaveCapture').addEventListener('click', saveCapture);
   $('#btnCancelCapture').addEventListener('click', cancelCapture);
   $('#btnOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());

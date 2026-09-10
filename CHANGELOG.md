@@ -5,6 +5,18 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.14.2] — 2026-09-10
+
+### Diubah
+
+- **Log hasil fill di panel cepat diberi batas tinggi + scroll sendiri** — pesan fill yang panjang (mis. daftar `⚠ tampilan widget tidak ikut` dan `✖ gagal` yang berderet) tidak lagi memanjangkan panel ke atas; area log dibatasi ±6 baris dengan scroll, jadi ringkasan awal (`✔ N field terisi.`) tetap terlihat tanpa menggulung. Popup extension mendapat perlakuan sama agar log panjang tidak menekan daftar profil.
+- **Daftar profil ikut dibatasi tingginya (±4 item, scroll sendiri)** — sebelumnya scroll daftar hanya muncul karena log panjang memaksa panel menyempit; setelah log dibatasi, daftar muat seluruhnya dan scroll-nya hilang. Kini daftar punya batas tinggi sendiri di panel cepat dan popup, sehingga scroll daftar **dan** scroll log tampil berdampingan secara konsisten.
+- **Section log diberi judul "📋 Log" + garis pemisah & tombol ✕** — area log yang tadinya terkesan menyatu dengan daftar profil kini punya judul kecil dengan garis di panel cepat maupun popup, jadi batas antara daftar dan log terlihat jelas. Judul ikut tampil/hilang bersama isi log, dan tombol **✕** di baris judul menutup log secara manual.
+- **Pengaturan "Tampilkan log" (default mati)** — checkbox baru di ⚙ Kelola → Pengaturan: log hasil fill di panel cepat & popup tidak dimunculkan kecuali diaktifkan. Pesan **error tetap tampil** agar alur (mis. capture di halaman tak didukung, fill gagal) tidak buntu tanpa penjelasan; riwayat fill tetap tercatat di bagian Fill Log. Perubahan setting berlaku langsung tanpa reload halaman.
+- **Klik Capture menutup log otomatis** — saat log masih terbuka dan tombol 📷 Capture diklik (panel cepat maupun popup), log hasil sebelumnya ditutup sendiri.
+
+---
+
 ## [0.14.1] — 2026-09-10
 
 ### Diperbaiki

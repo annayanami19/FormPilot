@@ -833,6 +833,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#setAutoUpdate').checked = await DB.getAutoUpdateProfiles();
   $('#setAutoUpdate').addEventListener('change', (e) => DB.setAutoUpdateProfiles(e.target.checked));
 
+  $('#setShowLog').checked = await DB.getShowFillLog();
+  $('#setShowLog').addEventListener('change', (e) => DB.setShowFillLog(e.target.checked));
+
   /* ---------- Update Otomatis (extension) ---------- */
   $('#setUpdateCheck').checked = await DB.getUpdateCheckEnabled();
   $('#setUpdateCheck').addEventListener('change', (e) => DB.setUpdateCheckEnabled(e.target.checked));
