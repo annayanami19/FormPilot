@@ -941,7 +941,7 @@
     cancelBtn.addEventListener('click', () => {
       pending = null;
       vaultAction = null; // batal juga batalkan aksi yang menunggu passphrase
-      vaultWrap.style.display = 'none';
+      if (vaultWrap) vaultWrap.style.display = 'none'; // belum dibuat = tidak ada yang perlu disembunyikan
       clearCapHighlight();
       capUpd.style.display = 'none';
       capWrap.style.display = 'none';

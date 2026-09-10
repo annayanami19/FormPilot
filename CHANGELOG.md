@@ -5,6 +5,14 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.14.1] — 2026-09-10
+
+### Diperbaiki
+
+- **Tombol "Batal" di panel cepat tidak merespons saat mode capture** — form passphrase dibuat lazy (hanya saat pertama kali diminta), sehingga di halaman baru variabel `vaultWrap` masih `null` dan handler Batal melempar `TypeError` di tengah jalan: highlight capture tidak dibersihkan dan form capture tetap terbuka (terkesan mati). Kini diamankan dengan guard null, sama seperti yang sudah dipakai di `toggle()`. Popup extension tidak terdampak karena panel vault-nya elemen statis.
+
+---
+
 ## [0.14.0] — 2026-09-09
 
 ### Ditambah
