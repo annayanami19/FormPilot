@@ -5,6 +5,14 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.14.3] — 2026-09-11
+
+### Diperbaiki
+
+- **Fill TomSelect yang dropdown-nya dirender di luar wrapper kini berfungsi** — pada konfigurasi TomSelect dengan `dropdownParent` (mis. form "Tambah Lintas Layanan" di qa-dashboard), elemen `.ts-dropdown` TIDAK berada di dalam `.ts-wrapper` melainkan dirender terpisah (mis. di ujung `<body>`), hanya terhubung lewat atribut `aria-controls` pada input control. `widgetPick()` sebelumnya mencari opsi dan dropdown hanya di dalam wrapper, sehingga selalu gagal dengan `opsi-tidak-ditemukan-di-widget` lalu jatuh ke jalur native yang tidak mengubah tampilan widget (TomSelect tidak mendengarkan event `change` pada field asli) — field terdeteksi saat capture tapi value-nya tidak pernah tampil terisi. Kini dropdown dicari lewat konvensi ARIA bawaan TomSelect (`aria-controls` → id konten dropdown), pencarian opsi mencakup wrapper + dropdown luar, dropdown yang belum terender tetap dicoba dibuka (bukan langsung menyerah), dan resolusinya diulang tiap langkah karena elemennya bisa baru muncul setelah dibuka. Perbaikan bersifat umum untuk semua situs dengan pola widget serupa — tanpa selector spesifik halaman.
+
+---
+
 ## [0.14.2] — 2026-09-10
 
 ### Diubah

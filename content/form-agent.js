@@ -92,31 +92,66 @@
      Ini satu-satunya jalur yang menjamin tampilan widget ikut terisi:
      TomSelect dkk tidak mendengarkan event 'change' pada field asli —
      aliran datanya satu arah (widget → native). */
+  /* Dropdown milik widget. Umumnya berada DI DALAM wrapper, tetapi TomSelect
+     yang dikonfigurasi dengan dropdownParent merendernya DI LUAR wrapper
+     (mis. di ujung <body>) dan hanya terhubung lewat aria-controls pada
+     input control-nya — konvensi ARIA bawaan TomSelect, bukan selector
+     halaman tertentu. */
+  function widgetDropdownOf(wrap) {
+    const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
+    if (dd) return dd;
+    const ctrl = wrap.querySelector('.ts-control [aria-controls]');
+    const id = ctrl && ctrl.getAttribute('aria-controls');
+    if (id) {
+      const c = document.getElementById(id);
+      if (c) return c.closest('.ts-dropdown') || c;
+    }
+    return null;
+  }
+
   async function widgetPick(el, value, text) {
     const wrap = widgetWrapOf(el);
     if (!wrap) return { ok: false, why: 'wrapper-widget-tidak-ditemukan' };
     const attr = String(value).replace(/[\\"]/g, '\\$&');
+    /* Ruang pencarian opsi: wrapper + dropdown-nya bila dropdown hidup di
+       luar wrapper (TomSelect dropdownParent). */
+    const optScopes = () => {
+      const dd = widgetDropdownOf(wrap);
+      return dd && !wrap.contains(dd) ? [wrap, dd] : [wrap];
+    };
     const findOpt = () =>
-      wrap.querySelector('[data-selectable][data-value="' + attr + '"]') ||
-      wrap.querySelector('[data-value="' + attr + '"]');
+      optScopes()
+        .map((sc) => sc.querySelector('[data-selectable][data-value="' + attr + '"]'))
+        .find(Boolean) ||
+      optScopes()
+        .map((sc) => sc.querySelector('[data-value="' + attr + '"]'))
+        .find(Boolean) ||
+      null;
     const findOptByText = () => {
       if (!text) return null;
       const want = String(text).trim().toLowerCase();
-      return (
-        [...wrap.querySelectorAll('[data-selectable], .choices__item--choice')].find(
-          (o) => (o.textContent || '').trim().toLowerCase() === want
-        ) || null
-      );
+      for (const sc of optScopes()) {
+        const o = [...sc.querySelectorAll('[data-selectable], .choices__item--choice')].find(
+          (x) => (x.textContent || '').trim().toLowerCase() === want
+        );
+        if (o) return o;
+      }
+      return null;
     };
     const pickedNow = () =>
       el.value === String(value) ||
       !!wrap.querySelector('.item[data-value="' + attr + '"]') ||
       !!wrap.querySelector('.choices__item--selected[data-value="' + attr + '"]');
 
-    const dd = wrap.querySelector('.ts-dropdown, .choices__list--dropdown');
-    const isOpen = () => dd && getComputedStyle(dd).display !== 'none';
+    /* Dropdown bisa saja belum terender saat widgetPick mulai — resolve
+       ulang tiap pengecekan, bukan sekali di awal. Dropdown yang belum ada
+       berarti tertutup, jadi tetap dicoba dibuka. */
+    const isOpen = () => {
+      const dd = widgetDropdownOf(wrap);
+      return !!dd && getComputedStyle(dd).display !== 'none';
+    };
     let opt = findOpt() || findOptByText();
-    if (!opt && dd && !isOpen()) {
+    if (!opt && !isOpen()) {
       const ctl = wrap.querySelector('.ts-control, .choices');
       if (ctl) mouseBurst(ctl); // buka dropdown seperti klik user
       for (const wait of [0, 80, 250]) {
@@ -131,7 +166,7 @@
       await sleep(wait);
       if (pickedNow()) return { ok: true };
     }
-    if (dd && isOpen()) {
+    if (isOpen()) {
       // gagal pilih — tutup lagi dropdown yang sempat terbuka
       const ci = wrap.querySelector('input');
       if (ci) {

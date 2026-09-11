@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FormPilot",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "description": "FormPilot — simpan kondisi form testing sebagai profile dan isi ulang dengan satu klik.",
   "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage", "alarms"],
   "background": {
