@@ -309,7 +309,7 @@ Placeholder tak dikenal dibiarkan apa adanya.
 - **Upload file** tidak bisa diisi otomatis (keamanan browser) — diisi manual; sisanya otomatis.
 - **Halaman internal browser** (`chrome://`, web store, dll.) tidak didukung untuk capture/fill.
 - **Select2 AJAX**: opsi yang tidak ada di DOM dibuat ulang otomatis dari teks tersimpan saat fill; select bertingkat yang ter-reset oleh AJAX diberi kesempatan terpasang ulang. Widget **TomSelect & Choices.js** juga didukung (capture + fill lewat UI widget-nya). Batasan: TomSelect **multi berbasis AJAX** (opsi muncul setelah mengetik) terisi di field aslinya — form tetap submit benar — tapi tampilan widgetnya belum ikut (ditandai peringatan ⚠ saat fill).
-- **Baris dinamis** tabel (input `name="x[]"`): baris yang hilang dicoba dibuat ulang otomatis (maks. 10 baris) memakai tombol add asli aplikasi, dengan fallback sintesis baris.
+- **Baris dinamis** (input `name="x[]"`) di tabel MAUPUN grup div add/remove (mis. deret `.input-group` bertombol +/−): baris yang hilang dicoba dibuat ulang otomatis (maks. 10 baris) memakai tombol add asli aplikasi; bila tombolnya tidak ketemu, baris baru ditiru dari baris terakhir yang ada (atau template bawaan untuk beberapa nama yang dikenal).
 - Kriptografi di halaman **http** tidak didukung (lihat bagian 10).
 
 ---

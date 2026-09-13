@@ -5,6 +5,18 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.14.4] — 2026-09-14
+
+### Diperbaiki
+
+- **Baris dinamis kini mendukung grup add/remove BERBAS DIV, bukan hanya `<table>`** — field `name="x[]"` yang barisnya berupa deret div (mis. `.input-group` di dalam satu div bertombol +/− ala `addElement*/removeElement*`, contoh: field "Jaminan SLG") sebelumnya selalu gagal fill dengan pesan `Tabel "..." tidak ditemukan` karena seluruh mekanisme baris dinamis mengasumsikan `<table>`. Kini generik untuk struktur apa pun:
+  - *Capture* mencatat kontainer grup baris: `<table>` bila ada, kalau tidak **leluhur terendah yang memuat semua input se-nama** (`rowGroupOf`) — id kontainernya ikut tersimpan bila ada.
+  - *Fill* menyelesaikan baris lewat kontainer itu; baris yang kurang ditambahkan memakai **tombol add asli halaman** (heuristik yang sudah ada), dan bila nama field tak punya template sintesis, baris baru **ditiru dari baris terakhir yang ada** (clone + kosongkan value + tombol add inline tidak ikut — pola standar baris dinamis berbasis div). Template bawaan (`quote_number`, `file_lampiran_url`, `file_lampiran`) tetap dipakai; template input file yang sebelumnya disuntikkan untuk nama tak dikenal apa pun dihapus karena salah sasaran.
+  - Profil lama yang tidak menyimpan id kontainer tetap jalan lewat penemuan ulang kontainer di sisi fill; baris yang menyebar tanpa kontainer tetap bisa diisi bila jumlahnya cukup.
+  - Pesan gagal diperjelas: `Grup baris "..." tidak ditemukan` (bukan "Tabel").
+
+---
+
 ## [0.14.3] — 2026-09-11
 
 ### Diperbaiki

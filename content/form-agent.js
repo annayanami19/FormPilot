@@ -242,24 +242,55 @@
     return el.getAttribute('placeholder') || el.name || '';
   }
 
-  /* ---------- baris dinamis (input name="x[]" di tabel add/remove) ---------- */
+  /* ---------- baris dinamis (input name="x[]" di grup add/remove) ---------- */
 
   function nameSelector(name) {
     return '[name="' + String(name).replace(/"/g, '\\"') + '"]';
   }
 
-  /* Posisi baris saat capture: tabel asal, name, dan urutan barisnya. */
+  /* Posisi baris saat capture: grup baris asal (tabel ATAU div add/remove),
+     name, dan urutan barisnya. Kontainer div dicatat lewat id-nya bila ada;
+     tanpa id pun fill tetap bisa menemukannya ulang lewat rowGroupOf(). */
   function arrayRowInfo(el) {
     const name = el.getAttribute('name');
     if (!name || !name.endsWith('[]')) return null;
-    const table = el.closest('table');
-    if (!table) return null;
-    const same = Array.from(table.querySelectorAll(nameSelector(name)));
-    return { tableId: table.id || '', name, index: same.indexOf(el) };
+    const group = el.closest('table') || rowGroupOf(el, name);
+    const same = group
+      ? Array.from(group.querySelectorAll(nameSelector(name)))
+      : Array.from(document.querySelectorAll(nameSelector(name)));
+    return { tableId: (group && group.id) || '', name, index: same.indexOf(el) };
   }
 
   function rowsInTable(table, name) {
     return Array.from(table.querySelectorAll(nameSelector(name)));
+  }
+
+  /* Kontainer grup baris untuk pola add/remove BERBAS DIV (mis. deret
+     .input-group di dalam satu div bertombol +/−) — leluhur terendah yang
+     memuat semua input se-nama. Kurang dari dua baris atau menyebar sampai
+     <body> berarti tidak ada kontainer yang berarti (index global cukup). */
+  function rowGroupOf(el, name) {
+    const same = Array.from(document.querySelectorAll(nameSelector(name)));
+    if (same.length < 2) return null;
+    let cand = el.parentElement;
+    while (cand && cand !== document.documentElement) {
+      if (same.every((i) => cand.contains(i))) {
+        return cand === document.body ? null : cand; // pertama dari bawah = terendah
+      }
+      cand = cand.parentElement;
+    }
+    return null;
+  }
+
+  /* Pembungkus satu baris di dalam kontainer — <tr> untuk pola tabel,
+     keturunan tepat di bawah kontainer untuk pola div. Null bila input
+     ternyata di luar kontainer (mis. side-effect tombol yang salah sasaran). */
+  function rowWrapperOf(container, inp) {
+    const tr = inp.closest('tr');
+    if (tr && container.contains(tr)) return tr;
+    let n = inp;
+    while (n.parentElement && n.parentElement !== container) n = n.parentElement;
+    return n.parentElement === container ? n : null;
   }
 
   /* HTML satu baris input baru, meniru output fungsi addElement* di app
@@ -289,12 +320,17 @@
     }
     // file_lampiran (upload) — tidak bisa diisi otomatis (batasan browser),
     // disediakan agar jumlah baris konsisten dengan capture
-    return (
-      '<tr><td><div class="custom-file">' +
-      '<input type="file" name="file_lampiran[]" class="custom-file-input" required>' +
-      '<label class="custom-file-label">Choose file...</label>' +
-      '</div></td><td></td></tr>'
-    );
+    if (base === 'file_lampiran') {
+      return (
+        '<tr><td><div class="custom-file">' +
+        '<input type="file" name="file_lampiran[]" class="custom-file-input" required>' +
+        '<label class="custom-file-label">Choose file...</label>' +
+        '</div></td><td></td></tr>'
+      );
+    }
+    // Nama tak dikenal → tanpa template; addRow meniru baris terakhir yang
+    // sudah ada (pola baris div/tr apa pun), generik lintas situs.
+    return null;
   }
 
   /* Tambah satu baris: tombol "add" asli app dulu (perilaku paling setia;
@@ -326,23 +362,48 @@
       // (mis. input file required yang bisa menggagalkan submit form)
       Array.from(table.querySelectorAll('input')).forEach((inp) => {
         if (!beforeEls.has(inp)) {
-          const tr = inp.closest('tr');
-          if (tr) tr.remove();
+          const wrap = rowWrapperOf(table, inp);
+          if (wrap) wrap.remove();
           else inp.remove();
         }
       });
     }
 
-    // sintesis baris via DOM — tanpa tag/inline script, aman terhadap CSP
-    const tbody = table.tBodies[0] || table;
+    // sintesis baris via DOM — tanpa tag/script yang dieksekusi, aman CSP.
+    // Template khusus dulu; sisanya tiru baris terakhir yang ada (pola
+    // generik baris div/tr apa pun): cloneNode menyalin atribut onclick
+    // inline milik halaman, tapi bukan listener addEventListener — jadi
+    // tombol hapus barisan tiruan ditempel ulang di bawah.
+    const parent = table.tBodies[0] || table;
     const before = rowsInTable(table, name).length;
-    try {
-      tbody.insertAdjacentHTML('beforeend', rowHtmlFor(name));
-    } catch {
-      return false;
+    const tpl = rowHtmlFor(name);
+    let row = null;
+    if (tpl) {
+      try {
+        parent.insertAdjacentHTML('beforeend', tpl);
+      } catch {
+        return false;
+      }
+      row = parent.lastElementChild;
+    } else {
+      const rows = rowsInTable(table, name);
+      if (!rows.length) return false; // tak ada contoh baris untuk ditiru
+      const wrap = rowWrapperOf(table, rows[rows.length - 1]) || rows[rows.length - 1];
+      row = wrap.cloneNode(true);
+      // tombol add inline milik halaman tidak ikut ditiru (bisa menggandakan
+      // baris saat diklik); value dibersihkan agar tidak dobel terkirim
+      row.querySelectorAll('button[onclick]').forEach((b) => {
+        const oc = (b.getAttribute('onclick') || '').toLowerCase();
+        if (/add/i.test(oc) && !/remove|delete/i.test(oc)) b.remove();
+      });
+      row.querySelectorAll('input, textarea, select').forEach((i) => {
+        if (i.type === 'checkbox' || i.type === 'radio') i.checked = false;
+        else if (i.tagName === 'SELECT') i.selectedIndex = 0;
+        else i.value = '';
+      });
+      parent.appendChild(row);
     }
     if (rowsInTable(table, name).length <= before) return false;
-    const row = tbody.lastElementChild;
     const trash = row && row.querySelector('button');
     if (trash) {
       trash.addEventListener('click', () => row.remove());
@@ -533,17 +594,18 @@
     return null;
   }
 
-  /* Selesaikan input baris dinamis lewat tabel asalnya — bukan lewat
-     selector generik yang berisiko salah sasaran ke tabel lain. */
+  /* Selesaikan input baris dinamis lewat grup baris asalnya (tabel ATAU
+     div add/remove) — bukan lewat selector generik yang berisiko salah
+     sasaran ke grup lain. */
   function resolveArrayRow(ar) {
     let table = (ar.tableId && document.getElementById(ar.tableId)) || null;
     if (!table) {
       const any = document.querySelector(nameSelector(ar.name));
-      table = any ? any.closest('table') : null;
+      table = any ? any.closest('table') || rowGroupOf(any, ar.name) : null;
     }
     if (!table && ar.name.endsWith('[]')) {
-      // konvensi id tabel di app target: table_<nama-field> (varian _url
-      // menumpang tabel induknya, mis. table_file_lampiran)
+      // konvensi id grup di app target: table_<nama-field> (varian _url
+      // menumpang grup induknya, mis. table_file_lampiran)
       const base = ar.name.replace(/\[\]$/, '');
       table =
         document.getElementById('table_' + base) ||
@@ -551,7 +613,17 @@
         null;
     }
     if (!table) {
-      return { reason: 'Tabel "' + (ar.tableId || ar.name) + '" tidak ditemukan' };
+      // Tanpa kontainer jelas (baris menyebar / profil lama di DOM berbeda)
+      // — masih bisa diisi bila jumlah baris yang ada cukup; membuat
+      // baris baru tanpa kontainer tidak bisa dilakukan dengan aman.
+      const all = Array.from(document.querySelectorAll(nameSelector(ar.name)));
+      if (all.length > ar.index) return { el: all[ar.index] };
+      return {
+        reason:
+          'Baris ke-' + (ar.index + 1) +
+          ' tidak bisa dibuat — grup baris "' + (ar.tableId || ar.name) +
+          '" tidak ditemukan',
+      };
     }
 
     let rows = rowsInTable(table, ar.name);
