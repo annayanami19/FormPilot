@@ -46,7 +46,21 @@ header {
   text-overflow: ellipsis;
 }
 
-.actions { padding: 0 12px 8px; }
+.actions { padding: 0 12px 8px; display: flex; gap: 8px; }
+.actions button { flex: 1; }
+
+#btnGenerate {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+#btnGenerate:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
 
 button.primary {
   width: 100%;
@@ -163,6 +177,10 @@ button.small {
 .item.matched { border-color: #16a34a; background: #f0fdf4; }
 
 .item-main { min-width: 0; }
+.badge.gen {
+  background: #f59e0b; /* amber — beda dari badge "match" hijau */
+}
+
 .item .name { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .meta { color: #6b7280; font-size: 11px; }
 

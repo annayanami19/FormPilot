@@ -47,6 +47,42 @@
     </section>
 
     <section>
+      <h2>🚫 Pengecualian Generate</h2>
+      <label class="chk">
+        <input type="checkbox" id="setGenSkipNonForm" />
+        Kecualikan field non-isian — kolom search/filter/pagination tidak di-generate (default aktif)
+      </label>
+      <label style="display: block; margin-top: 8px;">
+        Kata kunci pengecualian (pisah koma; dicocokkan ke label, name, id &amp; placeholder — kata pendek ≤2 huruf hanya dicocokkan persis ke name/id)<br />
+        <input id="setGenExcludeKeywords" type="text" style="max-width: 560px;" placeholder="search, cari, keyword, ..." />
+      </label>
+
+      <h3 style="margin-top: 16px;">Elemen yang dikecualikan</h3>
+      <p class="hint" style="margin-top: 0;">
+        <strong>Cara ambil elemen:</strong> buka halaman target → klik tombol <strong>FP</strong> di pojok kanan bawah →
+        <strong>🎯 Ambil</strong> → arahkan &amp; klik elemen yang mau dikecualikan (boleh kotak pembungkusnya —
+        semua field di dalamnya ikut terkecualikan) → beri nama → <strong>Simpan profile</strong>.
+        Field yang cocok dilewati saat ⚡ Generate, hanya di situs dengan URL pattern yang sama, sampai kamu hapus dari daftar ini.
+      </p>
+      <div class="filter-bar">
+        <input id="exclSearch" type="search" placeholder="Cari nama / selector / URL pattern…" />
+        <select id="exclFilterPattern">
+          <option value="">Semua URL pattern</option>
+        </select>
+      </div>
+      <table id="exclTable">
+        <thead>
+          <tr><th>Nama</th><th>URL Pattern</th><th>Selector</th><th></th></tr>
+        </thead>
+        <tbody id="exclRows"></tbody>
+      </table>
+      <p id="emptyExcl" class="hint">Belum ada pengecualian elemen — ambil lewat panel FP di halaman target.</p>
+      <div class="row" style="margin-top: 8px;">
+        <button id="btnClearExcl" class="danger hidden" type="button">🗑 Hapus semua pengecualian</button>
+      </div>
+    </section>
+
+    <section>
       <h2>Grup</h2>
       <div class="row" style="margin-bottom: 10px; max-width: 420px;">
         <input id="newGroupName" type="text" placeholder="Nama grup baru…" />
@@ -239,9 +275,11 @@
           <li><strong>Filter</strong> di Daftar Profile bisa menyentuh nilai field (mis. nomor quote tertentu).</li>
         </ul>
 
-        <h3>4. Nilai dinamis &amp; backup</h3>
+        <h3>4. Nilai dinamis &amp; data dummy</h3>
         <ul>
-          <li>Nilai field bisa memakai placeholder: <code>{{today}}</code>, <code>{{today+30}}</code>, <code>{{time}}</code>, <code>{{timestamp}}</code>, <code>{{uuid}}</code>.</li>
+          <li><strong>⚡ Generate Profile</strong> (popup/panel) — pindai struktur form lalu isi semua field dengan token data dummy ({{nama}}, {{email}}, {{acak}}, ...); nilai acak baru dibuat setiap kali Fill, dan persona konsisten (username = konfirmasi username).</li>
+          <li>Nilai field bisa memakai placeholder: <code>{{today}}</code>, <code>{{today+30}}</code>, <code>{{time}}</code>, <code>{{timestamp}}</code>, <code>{{uuid}}</code>, plus token dummy: <code>{{nama}}</code>, <code>{{nama_depan}}</code>, <code>{{nama_belakang}}</code>, <code>{{username}}</code>, <code>{{email}}</code>, <code>{{password}}</code>, <code>{{hp}}</code>, <code>{{telepon}}</code>, <code>{{nik}}</code>, <code>{{tgl_lahir}}</code>, <code>{{alamat}}</code>, <code>{{kota}}</code>, <code>{{provinsi}}</code>, <code>{{kode_pos}}</code>, <code>{{agama}}</code>, <code>{{pekerjaan}}</code>, <code>{{perusahaan}}</code>, <code>{{angka:1-999}}</code>, <code>{{acak}}</code>.</li>
+          <li>Di editor Field Mapping, tombol <strong>🎲</strong> menyisipkan token ke nilai field.</li>
           <li><strong>Export JSON</strong> secara rutin, atau aktifkan <strong>Backup Otomatis</strong> ke folder tersinkron.</li>
           <li>Pengaturan <em>"grup sesuai URL"</em> mengatur daftar di popup &amp; panel cepat: hanya grup yang cocok dengan halaman aktif yang tampil.</li>
         </ul>
@@ -269,6 +307,8 @@
   </dialog>
 
   <script src="../lib/db.js"></script>
+  <script src="../lib/placeholder.js"></script>
+  <script src="../lib/generator.js"></script>
   <script src="../lib/backup.js"></script>
   <script src="../lib/vault.js"></script>
   <script src="options.js"></script>

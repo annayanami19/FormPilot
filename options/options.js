@@ -34,7 +34,11 @@ function displayVal(v) {
 }
 
 function collectVal(s, type) {
-  if (type === 'checkbox' || type === 'radio') return s.trim() === 'true';
+  // Token placeholder ({{acak}} dll) pada checkbox/radio tetap string —
+  // hanya literal true/false yang diubah jadi boolean.
+  if ((type === 'checkbox' || type === 'radio') && !s.includes('{{')) {
+    return s.trim() === 'true';
+  }
   if (s.includes(' | ')) return s.split(' | ').map((x) => x.trim()).filter(Boolean);
   return s;
 }
@@ -236,6 +240,9 @@ function renderProfiles() {
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td><strong>' + esc(p.name) + '</strong>' +
+        (p.generated
+          ? ' <span class="badge gen" title="Hasil ⚡ Generate — isinya token data dummy, di-generate ulang tiap Fill">⚡ gen</span>'
+          : '') +
         ((p.tags || []).length ? '<br/><span class="hint">' + esc(p.tags.join(', ')) + '</span>' : '') +
         '</td>' +
         '<td>' + esc(g.name) + '</td>' +
@@ -252,6 +259,84 @@ function renderProfiles() {
   }
 }
 
+/* ---------- pengecualian generate ---------- */
+
+/* Tabel daftar pengecualian elemen (card 🚫 Pengecualian Generate) —
+   dengan pencarian & filter URL pattern. */
+async function renderExclusions() {
+  let list = [];
+  try {
+    list = await DB.getGenExclusions();
+  } catch {
+    list = [];
+  }
+
+  /* Dropdown filter URL pattern dibangun ulang tiap render (daftar bisa
+     bertambah dari panel FP), pilihan yang sedang aktif dipertahankan. */
+  const sel = $('#exclFilterPattern');
+  const curSel = sel.value;
+  const patterns = [
+    ...new Set(list.map((x) => x.urlPattern || '(tanpa pattern)')),
+  ].sort((a, b) => a.localeCompare(b, 'id'));
+  sel.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value = '';
+  optAll.textContent = 'Semua URL pattern';
+  sel.appendChild(optAll);
+  for (const p of patterns) {
+    const o = document.createElement('option');
+    o.value = p;
+    o.textContent = p;
+    sel.appendChild(o);
+  }
+  sel.value = patterns.includes(curSel) ? curSel : '';
+
+  const q = $('#exclSearch').value.trim().toLowerCase();
+  const pat = sel.value;
+  let rows = list;
+  if (pat) rows = rows.filter((x) => (x.urlPattern || '(tanpa pattern)') === pat);
+  if (q) {
+    rows = rows.filter((x) =>
+      ((x.name || '') + ' ' + (x.selector || '') + ' ' + (x.urlPattern || ''))
+        .toLowerCase()
+        .includes(q)
+    );
+  }
+
+  const tbody = $('#exclRows');
+  tbody.innerHTML = '';
+  const empty = $('#emptyExcl');
+  empty.textContent = !list.length
+    ? 'Belum ada pengecualian elemen — ambil lewat panel FP di halaman target.'
+    : !rows.length
+      ? 'Tidak ada pengecualian yang cocok dengan pencarian/filter.'
+      : '';
+  empty.classList.toggle('hidden', !!rows.length);
+  $('#btnClearExcl').classList.toggle('hidden', !list.length);
+  for (const x of rows) {
+    const tr = document.createElement('tr');
+    const td = (txt) => {
+      const d = document.createElement('td');
+      d.textContent = txt == null ? '' : String(txt);
+      return d;
+    };
+    tr.appendChild(td(x.name));
+    tr.appendChild(td(x.urlPattern));
+    tr.appendChild(td(x.selector));
+    const tdAct = document.createElement('td');
+    const b = document.createElement('button');
+    b.className = 'mini danger';
+    b.textContent = '✕';
+    b.title = 'Hapus pengecualian ini';
+    b.type = 'button';
+    b.dataset.act = 'del';
+    b.dataset.id = x.id;
+    tdAct.appendChild(b);
+    tr.appendChild(tdAct);
+    tbody.appendChild(tr);
+  }
+}
+
 /* ---------- editor ---------- */
 
 function openEditor(p) {
@@ -265,6 +350,7 @@ function openEditor(p) {
         tags: [],
         notes: '',
         archived: false,
+        generated: false,
         createdAt: null,
         updatedAt: null,
         fields: [],
@@ -283,6 +369,61 @@ function openEditor(p) {
 function closeEditor() {
   EDIT = null;
   $('#editor').classList.add('hidden');
+}
+
+/* ---------- menu token data dummy (tombol 🎲 di editor) ---------- */
+
+const TOKEN_MENU = [
+  '{{nama}}', '{{nama_depan}}', '{{nama_belakang}}', '{{username}}',
+  '{{email}}', '{{password}}', '{{hp}}', '{{telepon}}', '{{nik}}',
+  '{{tgl_lahir}}', '{{alamat}}', '{{kota}}', '{{provinsi}}', '{{kode_pos}}',
+  '{{agama}}', '{{pekerjaan}}', '{{perusahaan}}', '{{angka:1-999}}',
+  '{{acak}}', '{{today}}', '{{today+30}}', '{{time}}', '{{timestamp}}',
+  '{{uuid}}',
+];
+
+function insertAtCursor(inp, text) {
+  const s = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+  const e = inp.selectionEnd == null ? s : inp.selectionEnd;
+  inp.value = inp.value.slice(0, s) + text + inp.value.slice(e);
+  inp.selectionStart = inp.selectionEnd = s + text.length;
+  inp.focus();
+}
+
+function closeTokenMenu() {
+  const m = document.getElementById('qaTokenMenu');
+  if (m) m.remove();
+  document.removeEventListener('click', onDocClickCloseToken);
+}
+
+function onDocClickCloseToken() {
+  closeTokenMenu();
+}
+
+function openTokenMenu(btn, valInp) {
+  closeTokenMenu(); // tutup menu milik baris lain bila masih terbuka
+  const m = document.createElement('div');
+  m.id = 'qaTokenMenu';
+  for (const t of TOKEN_MENU) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = t;
+    b.title = 'Sisipkan ' + t + ' ke nilai field';
+    b.addEventListener('click', () => {
+      insertAtCursor(valInp, t);
+      closeTokenMenu();
+    });
+    m.appendChild(b);
+  }
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect();
+  m.style.top = r.bottom + window.scrollY + 4 + 'px';
+  m.style.left =
+    Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 260)) +
+    'px';
+  // Listener dipasang belakangan supaya klik pembuka sendiri tidak
+  // langsung menutup menu (event klik ini masih menyebar ke document).
+  setTimeout(() => document.addEventListener('click', onDocClickCloseToken), 0);
 }
 
 function renderFieldRows() {
@@ -318,6 +459,13 @@ function renderFieldRows() {
     }
 
     const tdAct = document.createElement('td');
+    // 🎲 — sisipkan token data dummy ke nilai field
+    const btnDice = document.createElement('button');
+    btnDice.className = 'mini';
+    btnDice.textContent = '🎲';
+    btnDice.title = 'Sisipkan token data dummy ({{nama}}, {{email}}, {{acak}}, ...)';
+    btnDice.addEventListener('click', () => openTokenMenu(btnDice, valInp));
+    tdAct.appendChild(btnDice);
     const btn = document.createElement('button');
     btn.className = 'mini danger';
     btn.textContent = '✕';
@@ -479,6 +627,7 @@ async function doImport(file) {
         tags: [],
         notes: '',
         archived: false,
+        generated: false,
         createdAt: now,
         updatedAt: now,
         ...p,
@@ -829,6 +978,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   $('#setCaptureModal').checked = await DB.getCaptureModalOnly();
   $('#setCaptureModal').addEventListener('change', (e) => DB.setCaptureModalOnly(e.target.checked));
+
+  $('#setGenSkipNonForm').checked = await DB.getGenSkipNonForm();
+  $('#setGenSkipNonForm').addEventListener('change', (e) => DB.setGenSkipNonForm(e.target.checked));
+
+  $('#setGenExcludeKeywords').value = await DB.getGenExcludeKeywords();
+  $('#setGenExcludeKeywords').addEventListener('change', (e) =>
+    DB.setGenExcludeKeywords(e.target.value)
+  );
+
+  renderExclusions();
+  // Daftar pengecualian ikut segar saat elemen baru disimpan dari panel FP
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.genExclusions) renderExclusions();
+  });
+  $('#exclRows').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act="del"]');
+    if (btn) DB.deleteGenExclusion(btn.dataset.id); // renderExclusions dipicu onChanged
+  });
+  $('#exclSearch').addEventListener('input', renderExclusions);
+  $('#exclFilterPattern').addEventListener('change', renderExclusions);
+  $('#btnClearExcl').addEventListener('click', async () => {
+    if (!confirm('Hapus SEMUA pengecualian elemen?')) return;
+    await DB.clearGenExclusions();
+  });
 
   $('#setAutoUpdate').checked = await DB.getAutoUpdateProfiles();
   $('#setAutoUpdate').addEventListener('change', (e) => DB.setAutoUpdateProfiles(e.target.checked));

@@ -29,10 +29,14 @@
   let capGroup = null;
   let capInfo = null;
   let capUpd = null; // container tombol "Perbarui profile" saat capture
+  let capLblName = null; // label nama — teksnya berganti di mode pengecualian
+  let capLblGroup = null; // label grup — disembunyikan di mode pengecualian
   let dlEl = null;
   let fab = null;
   let geserBtn = null;
-  let pending = null; // hasil capture yang menunggu disimpan
+  let pending = null; // hasil capture/generate yang menunggu disimpan
+  let pendingSrc = 'capture'; // asal pending: 'capture' | 'generate' — penanda profile
+  let pendingExcl = null; // aturan pengecualian elemen yang menunggu disimpan
   let vaultWrap = null;
   let vaultMsg = null;
   let vaultInput = null;
@@ -192,6 +196,7 @@
       display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
       background: #16a34a; color: #fff; font-size: 10px; font-weight: 700;
     }
+    .qa-badge.gen { background: #f59e0b; } /* amber — beda dari badge "match" hijau */
     .qa-item {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
       padding: 7px 9px; margin: 2px 0; border: 1px solid #e5e7eb; border-radius: 8px;
@@ -601,6 +606,11 @@
         const main = el('div');
         main.style.minWidth = '0';
         main.appendChild(el('div', 'qa-name', p.name));
+        if (p.generated) {
+          const gen = el('span', 'qa-badge gen', '⚡ gen');
+          gen.title = 'Hasil ⚡ Generate — isinya token data dummy, di-generate ulang tiap Fill';
+          main.appendChild(gen);
+        }
         main.appendChild(el('span', 'qa-meta', (p.fields ? p.fields.length : 0) + ' field'));
         const btn = el('button', 'qa-fill', 'Fill');
         btn.type = 'button';
@@ -634,9 +644,12 @@
       showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
       return;
     }
+    // Satu persona acak per eksekusi fill — token sama di beberapa field
+    // menghasilkan nilai sama (lihat lib/generator.js).
+    const persona = window.Gen ? window.Gen.buildPersona() : null;
     const values = (fields || []).map((f) => ({
       ...f,
-      value: typeof f.value === 'string' ? resolvePlaceholders(f.value) : f.value,
+      value: typeof f.value === 'string' ? resolvePlaceholders(f.value, persona) : f.value,
     }));
     const res = await api.fill(values);
     const skipped = res.skipped || 0;
@@ -671,6 +684,8 @@
 
   async function startCapture() {
     logSec.style.display = 'none'; // capture mulai — log hasil sebelumnya ditutup
+    pendingExcl = null; // form kembali ke mode profile
+    resetCapFormMode();
     const api = window.__qaFormAgent;
     if (!api) {
       showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
@@ -687,6 +702,7 @@
       return;
     }
     pending = data;
+    pendingSrc = 'capture';
     capTitle.textContent = data.title || '(tanpa judul halaman)';
     capTitle.title = capTitle.textContent;
     const sens = data.fields.filter((f) => f.sensitive).length;
@@ -727,6 +743,135 @@
     capName.focus();
   }
 
+  /* ---------- generate profile (data dummy) ---------- */
+
+  /* Seperti capture, tapi field kosong pun disertakan dan nilainya berupa
+     token data dummy ({{nama}}, {{email}}, {{acak}}, ...) yang di-resolve
+     menjadi nilai nyata setiap kali profile di-Fill. */
+  async function startGenerate() {
+    logSec.style.display = 'none';
+    pendingExcl = null; // form kembali ke mode profile
+    resetCapFormMode();
+    const api = window.__qaFormAgent;
+    if (!api) {
+      showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
+      return;
+    }
+    const data = await api.capture({ generate: true });
+    if (!data || !data.count) {
+      showResult('Tidak ada field yang bisa di-generate di halaman ini.', 'err');
+      return;
+    }
+    pending = data;
+    pendingSrc = 'generate';
+    capTitle.textContent = data.title || '(tanpa judul halaman)';
+    capTitle.title = capTitle.textContent;
+    const sens = data.fields.filter((f) => f.sensitive).length;
+    capInfo.textContent =
+      data.count + ' field akan diisi data dummy — nilai acak baru dibuat setiap kali Fill.' +
+      (sens ? ' Termasuk ' + sens + ' password acak.' : '');
+    capName.value = 'Dummy — ' + (data.title || 'form').slice(0, 50);
+    try {
+      capGroup.value = new URL(location.href).hostname;
+    } catch {
+      capGroup.value = '';
+    }
+    // Generate juga bisa memperbarui profile serupa (mis. profile capture
+    // lama di-timpa field token) — penanda ⚡ generate-nya ikut menyala.
+    let cands = [];
+    try {
+      cands = await DB.findUpdateCandidates(location.href, data.fields);
+    } catch {
+      /* kandidat update opsional — jangan ganggu generate */
+    }
+    let auto = false;
+    if (cands.length) {
+      try {
+        auto = await DB.getAutoUpdateProfiles();
+      } catch {
+        /* setting tak terbaca — pakai jalur manual */
+      }
+    }
+    if (auto) {
+      try {
+        await autoUpdateCandidates(cands); // tanpa menampilkan form capture
+        return;
+      } catch {
+        /* kegagalan update otomatis tidak boleh menggagalkan generate */
+      }
+    }
+    renderUpdateCandidates(cands);
+    capWrap.style.display = 'block';
+    capName.focus();
+  }
+
+  /* ---------- pengecualian elemen (🎯 Ambil) ---------- */
+
+  /* Kembalikan form capture ke mode profile (label & grup normal). */
+  function resetCapFormMode() {
+    if (capLblName) capLblName.textContent = 'Nama profile';
+    if (capLblGroup) capLblGroup.style.display = '';
+    if (capGroup) capGroup.style.display = '';
+  }
+
+  /* Masuk mode pilih elemen: panel disembunyikan (jangan menutupi
+     elemen halaman), user menunjuk elemen, hasilnya ditampilkan sebagai
+     form konfirmasi di capWrap lalu disimpan ke daftar pengecualian. */
+  async function startPickExclusion() {
+    const api = window.__qaFormAgent;
+    if (!api || typeof api.startPick !== 'function') {
+      showResult('Agent belum siap — muat ulang halaman lalu coba lagi.', 'err');
+      return;
+    }
+    pending = null;
+    pendingExcl = null;
+    capWrap.style.display = 'none';
+    capUpd.style.display = 'none';
+    panel.style.display = 'none'; // panel bisa menutupi elemen target — sisihkan
+
+    const picked = await new Promise((resolve) => {
+      const ok = api.startPick((rule) => resolve(rule));
+      if (!ok) resolve(undefined); // gagal mulai
+    });
+    if (!picked) {
+      // Esc / klik bukan elemen / gagal mulai — panel dibuka lagi saja
+      panel.style.display = 'flex';
+      if (picked === null) showResult('Pemilihan elemen dibatalkan.', 'ok');
+      return;
+    }
+
+    // Elemen terpilih → form konfirmasi (mode pengecualian: tanpa grup)
+    pendingExcl = picked;
+    panel.style.display = 'flex';
+    capTitle.textContent = '🚫 Pengecualian Elemen';
+    capTitle.title = picked.selector || '';
+    resetCapFormMode();
+    capLblName.textContent = 'Nama pengecualian';
+    capLblGroup.style.display = 'none';
+    capGroup.style.display = 'none';
+    capInfo.textContent =
+      'Field yang cocok dengan elemen ini (atau ada di dalamnya) dilewati saat ⚡ Generate — ' +
+      'berlaku di situs ' +
+      (picked.urlPattern || 'yang sama') + '.';
+    capName.value = (picked.name || 'Elemen').slice(0, 80);
+    capUpd.style.display = 'none';
+    capWrap.style.display = 'block';
+    capName.focus();
+  }
+
+  async function saveExclusion() {
+    const name = capName.value.trim() || pendingExcl.name || 'Elemen';
+    try {
+      await DB.addGenExclusion({ ...pendingExcl, name });
+      showResult('🚫 Elemen masuk daftar pengecualian Generate — kelola di halaman Kelola.', 'ok');
+    } catch (e) {
+      showResult('Gagal menyimpan pengecualian: ' + e.message, 'err');
+    }
+    pendingExcl = null;
+    resetCapFormMode();
+    capWrap.style.display = 'none';
+  }
+
   /* Tombol "Perbarui" hanya muncul bila ada profile serupa (URL cocok +
      ada field yang sama); capture fresh tidak menampilkan tombol ini. */
   function renderUpdateCandidates(cands) {
@@ -739,7 +884,10 @@
     for (const c of cands.slice(0, 5)) {
       const b = el('button', null, '🔄 ' + c.profile.name + ' (' + c.overlap + ' field sama)');
       b.type = 'button';
-      b.title = 'Timpa field profile ini dengan hasil capture sekarang';
+      b.title =
+        'Timpa field profile ini dengan hasil ' +
+        (pendingSrc === 'generate' ? '⚡ Generate' : 'Capture') +
+        ' sekarang';
       b.addEventListener('click', () => safeRun(() => updateProfile(c.profile.id)));
       capUpd.appendChild(b);
     }
@@ -755,6 +903,9 @@
 
   async function finishUpdateProfile(p, fields) {
     p.fields = fields;
+    // Jalur update menentukan penanda: hasil ⚡ Generate menyalakan,
+    // hasil Capture memadamkan.
+    p.generated = pendingSrc === 'generate';
     p.updatedAt = Date.now();
     await DB.upsertProfile(p);
     pending = null;
@@ -775,11 +926,12 @@
     for (const c of cands.slice(0, 5)) {
       const p = (await DB.getProfiles()).find((x) => x.id === c.profile.id);
       if (!p) continue;
-      const ok = await gatedPromise(capFields, 'store', async (fields) => {
-        p.fields = fields;
-        p.updatedAt = Date.now();
-        await DB.upsertProfile(p);
-      });
+    const ok = await gatedPromise(capFields, 'store', async (fields) => {
+      p.fields = fields;
+      p.generated = pendingSrc === 'generate';
+      p.updatedAt = Date.now();
+      await DB.upsertProfile(p);
+    });
       if (ok) names.push(p.name);
       else failed++;
     }
@@ -798,6 +950,7 @@
   }
 
   async function saveCapture() {
+    if (pendingExcl) return saveExclusion(); // form sedang mode pengecualian
     if (!pending) return;
     const name = await DB.uniqueName(
       capName.value.trim() || 'Profile ' + new Date().toLocaleString()
@@ -821,6 +974,7 @@
       tags: [],
       notes: '',
       archived: false,
+      generated: pendingSrc === 'generate',
       createdAt: now,
       updatedAt: now,
       fields,
@@ -856,6 +1010,8 @@
       logSec.style.display = 'none';
       capWrap.style.display = 'none';
       capUpd.style.display = 'none';
+      pendingExcl = null;
+      resetCapFormMode();
       if (vaultWrap) vaultWrap.style.display = 'none'; // belum dibuat = tidak ada yang perlu disembunyikan
       clearCapHighlight(); // form capture lama sudah tidak terbuka lagi
       await renderList();
@@ -950,10 +1106,10 @@
     capWrap = el('div', 'qa-cap');
     capWrap.style.display = 'none';
     capTitle = el('div', 'qa-cap-title');
-    const lblName = el('label', 'qa-cap-label', 'Nama profile');
+    capLblName = el('label', 'qa-cap-label', 'Nama profile');
     capName = document.createElement('input');
     capName.id = 'qa-cap-name';
-    lblName.setAttribute('for', 'qa-cap-name');
+    capLblName.setAttribute('for', 'qa-cap-name');
     capName.type = 'text';
     capName.autocomplete = 'off';
     capName.placeholder = 'Nama profile…';
@@ -963,9 +1119,9 @@
     capGroup.autocomplete = 'off';
     capGroup.placeholder = 'Grup (mis. nama app / domain)';
     capGroup.maxLength = 60;
-    const lblGroup = el('label', 'qa-cap-label', 'Grup');
+    capLblGroup = el('label', 'qa-cap-label', 'Grup');
     capGroup.id = 'qa-cap-group';
-    lblGroup.setAttribute('for', 'qa-cap-group');
+    capLblGroup.setAttribute('for', 'qa-cap-group');
     dlEl = document.createElement('datalist');
     dlEl.id = 'qa-group-list';
     capGroup.setAttribute('list', 'qa-group-list');
@@ -978,9 +1134,11 @@
     cancelBtn.type = 'button';
     cancelBtn.addEventListener('click', () => {
       pending = null;
+      pendingExcl = null;
       vaultAction = null; // batal juga batalkan aksi yang menunggu passphrase
       if (vaultWrap) vaultWrap.style.display = 'none'; // belum dibuat = tidak ada yang perlu disembunyikan
       clearCapHighlight();
+      resetCapFormMode();
       capUpd.style.display = 'none';
       capWrap.style.display = 'none';
     });
@@ -988,12 +1146,22 @@
     capUpd = el('div', 'qa-cap-update');
     capUpd.style.display = 'none';
     capRow.append(saveBtn, cancelBtn);
-    capWrap.append(capTitle, lblName, capName, lblGroup, capGroup, dlEl, capInfo, capUpd, capRow);
+    capWrap.append(
+      capTitle, capLblName, capName, capLblGroup, capGroup, dlEl, capInfo, capUpd, capRow
+    );
 
     const foot = el('div', 'qa-foot');
     const capBtn = el('button', 'qa-primary', '📷 Capture');
     capBtn.type = 'button';
     capBtn.addEventListener('click', () => safeRun(startCapture));
+    const genBtn = el('button', null, '⚡ Generate');
+    genBtn.type = 'button';
+    genBtn.title = 'Buat profile baru berisi token data dummy (di-generate ulang setiap Fill)';
+    genBtn.addEventListener('click', () => safeRun(startGenerate));
+    const pickBtn = el('button', null, '🎯 Ambil');
+    pickBtn.type = 'button';
+    pickBtn.title = 'Pilih elemen di halaman ini untuk dikecualikan dari Generate';
+    pickBtn.addEventListener('click', () => safeRun(startPickExclusion));
     geserBtn = el('button', null, '🔒 Geser: OFF');
     geserBtn.type = 'button';
     geserBtn.title = 'Mode geser: ON = tombol bisa ditarik ke mana saja (posisi tersimpan), OFF = terkunci di pojok kanan bawah';
@@ -1019,7 +1187,7 @@
     offBtn.type = 'button';
     offBtn.title = 'Sembunyikan panel ini (aktifkan lagi dari halaman Kelola)';
     offBtn.addEventListener('click', () => safeRun(disable));
-    foot.append(capBtn, geserBtn, offBtn);
+    foot.append(capBtn, genBtn, pickBtn, geserBtn, offBtn);
 
     panel.append(head, searchWrap, listEl, capWrap, logSec, foot);
     shadow.appendChild(panel);

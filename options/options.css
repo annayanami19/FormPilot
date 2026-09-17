@@ -250,9 +250,53 @@ dialog h2 { margin-bottom: 6px; }
 
 #filter { max-width: 320px; }
 
+/* Badge penanda (mis. "⚡ gen" = profile hasil Generate) */
+.badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.badge.gen {
+  background: #f59e0b;
+  color: #fff;
+}
+
 code {
   background: var(--code-bg);
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+/* Menu token data dummy — dibuka tombol 🎲 di editor Field Mapping */
+#qaTokenMenu {
+  position: absolute;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-width: 480px;
+}
+#qaTokenMenu button {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+  text-align: left;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+#qaTokenMenu button:hover {
+  border-color: var(--accent);
+  background: var(--hover);
 }

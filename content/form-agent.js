@@ -3,6 +3,8 @@
    Self-contained & idempotent. Komunikasi via chrome.runtime.onMessage:
    - QA_PING     -> cek keberadaan agent
    - QA_CAPTURE  -> scan field yang terisi -> kembalikan daftar field
+   - QA_GENERATE -> scan struktur form -> kembalikan field berisi token
+                    data dummy ({{nama}}, {{acak}}, dst dari lib/generator.js)
    - QA_FILL     -> isi field sesuai daftar values */
 
 (() => {
@@ -460,9 +462,188 @@
     return list.length ? list[list.length - 1] : null;
   }
 
-  async function capture() {
+  /* ---------- pengecualian field non-isian (mode generate) ---------- */
+
+  /* Bila setting tak terbaca (DB belum termuat), pakai bawaan yang sama
+     dengan GEN_EXCLUDE_DEFAULTS di lib/db.js. */
+  const GEN_EXCLUDE_FALLBACK =
+    'search, cari, pencarian, keyword, kata kunci, filter, page, halaman, pagination, per page, q';
+
+  /* Field "bukan isian form": input[type=search], atau label/name/id/
+     placeholder-nya memuat salah satu kata kunci pengecualian. Pencocokan
+     kata utuh setelah _,-,. dinormalkan jadi spasi (supaya "search_product"
+     tetap kena "search"); kata kunci pendek (≤2 huruf, mis. "q") hanya
+     dicocokkan PERSIS ke name/id agar tidak salah sasaran. */
+  function isNonFormInput(el, keywords) {
+    if (inputType(el) === 'search') return true;
+    if (!keywords || !keywords.length) return false;
+    const hay = (
+      (labelFor(el) || '') + ' ' + (el.name || '') + ' ' + (el.id || '') + ' ' +
+      (el.getAttribute('placeholder') || '')
+    )
+      .toLowerCase()
+      .replace(/[_\-.]+/g, ' ');
+    for (const kw of keywords) {
+      const k = String(kw).trim().toLowerCase();
+      if (!k) continue;
+      if (k.length <= 2) {
+        if (el.name === k || el.id === k) return true;
+        continue;
+      }
+      const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp('\\b' + escaped + '\\b').test(hay)) return true;
+    }
+    return false;
+  }
+
+  /* ---------- mode pilih elemen (🎯 pengecualian Generate) ---------- */
+
+  let pickState = null;
+
+  function ensurePickStyle() {
+    if (document.getElementById('qa-pick-hl-style')) return;
+    const st = document.createElement('style');
+    st.id = 'qa-pick-hl-style';
+    /* Kursor custom crosshair (SVG inline, hitam+putih agar kontras di
+       latar terang MAUPUN gelap; hotspot 16,16 = titik tengah bidik).
+       Crosshair bawaan sistem tipis & warnanya tergantung tema — sering
+       nyaris tak terlihat. Dipasang di SELURUH halaman selama mode pilih:
+       bila hanya di elemen yang di-hover, kursor bolak-balik antar gaya
+       tiap pindah ke celah antar elemen (terlihat berkedip). */
+    const cur =
+      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'>" +
+      "<g stroke='black' stroke-width='3' stroke-linecap='round' fill='none'>" +
+      "<line x1='16' y1='2' x2='16' y2='10'/><line x1='16' y1='22' x2='16' y2='30'/>" +
+      "<line x1='2' y1='16' x2='10' y2='16'/><line x1='22' y1='16' x2='30' y2='16'/>" +
+      "<circle cx='16' cy='16' r='7'/>" +
+      '</g>' +
+      "<g stroke='white' stroke-width='1.2' stroke-linecap='round' fill='none'>" +
+      "<line x1='16' y1='2' x2='16' y2='10'/><line x1='16' y1='22' x2='16' y2='30'/>" +
+      "<line x1='2' y1='16' x2='10' y2='16'/><line x1='22' y1='16' x2='30' y2='16'/>" +
+      "<circle cx='16' cy='16' r='7'/>" +
+      '</g></svg>")' +
+      ' 16 16, crosshair';
+    st.textContent =
+      '.qa-pick-hl { outline: 2px dashed #dc2626 !important; outline-offset: 1px; }' +
+      'html.qa-picking, html.qa-picking * { cursor: ' + cur + ' !important; }';
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  function ensurePickBanner() {
+    if (document.getElementById('qa-pick-banner')) return;
+    const b = document.createElement('div');
+    b.id = 'qa-pick-banner';
+    // pointer-events:none — banner tidak bisa diklik & tak ikut ter-highlight
+    b.style.cssText =
+      'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;' +
+      'pointer-events:none;background:#111827;color:#fff;padding:8px 14px;border-radius:8px;' +
+      'font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    b.textContent = '🎯 Klik elemen yang mau dikecualikan dari Generate — Esc untuk batal';
+    (document.body || document.documentElement).appendChild(b);
+  }
+
+  function cancelPick() {
+    if (!pickState) return;
+    document.removeEventListener('mouseover', pickState.onMove, true);
+    document.removeEventListener('click', pickState.onClick, true);
+    document.removeEventListener('keydown', pickState.onKey, true);
+    document.documentElement.classList.remove('qa-picking');
+    document.querySelectorAll('.qa-pick-hl').forEach((el) => el.classList.remove('qa-pick-hl'));
+    const b = document.getElementById('qa-pick-banner');
+    if (b) b.remove();
+    pickState = null;
+  }
+
+  /* Masuk mode pilih: hover = highlight, klik = pilih elemen, Esc = batal.
+     onPicked(rule|null) dipanggil TEPAT sekali — rule berisi selector gaya
+     capture (bestSelector) + urlPattern origin halaman. */
+  function startPick(onPicked) {
+    if (typeof onPicked !== 'function') return false;
+    cancelPick(); // mode pilih sebelumnya masih jalan? hentikan dulu
+    ensurePickStyle();
+    ensurePickBanner();
+    document.documentElement.classList.add('qa-picking');
+
+    const finish = (el) => {
+      cancelPick();
+      let rule = null;
+      if (el instanceof Element) {
+        const { selector, fallbacks } = bestSelector(el);
+        let pattern = '';
+        try {
+          pattern = new URL(location.href).origin + '/**';
+        } catch {
+          pattern = '';
+        }
+        rule = {
+          name: labelFor(el) || el.name || inputType(el) || 'Elemen',
+          selector,
+          fallbacks,
+          label: labelFor(el),
+          type: inputType(el),
+          urlPattern: pattern,
+        };
+      }
+      try {
+        onPicked(rule);
+      } catch {
+        /* callback panel mati — abaikan */
+      }
+    };
+
+    const onMove = (e) => {
+      if (!(e.target instanceof Element)) return;
+      if (pickState.hovered && pickState.hovered !== e.target) {
+        pickState.hovered.classList.remove('qa-pick-hl');
+      }
+      pickState.hovered = e.target;
+      pickState.hovered.classList.add('qa-pick-hl');
+    };
+    const onClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      finish(e.target instanceof Element ? e.target : null);
+    };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      finish(null);
+    };
+
+    pickState = { onMove, onClick, onKey, hovered: null };
+    document.addEventListener('mouseover', onMove, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    return true;
+  }
+
+  /* Apakah field kena aturan pengecualian elemen: elemennya sendiri cocok
+     selector ATAU berada di dalam elemen yang dipilih (bisa memilih kotak
+     pembungkus search bar — semua field di dalamnya ikut terkecualikan). */
+  function matchesExclusion(el, rules) {
+    for (const x of rules || []) {
+      for (const s of [x.selector].concat(x.fallbacks || [])) {
+        if (!s) continue;
+        try {
+          if (el.matches(s) || el.closest(s)) return true;
+        } catch {
+          /* selector rusak — lewati */
+        }
+      }
+    }
+    return false;
+  }
+
+  async function capture(opts) {
+    const gen = !!(opts && opts.generate);
     const fields = [];
     const hitEls = []; // elemen terdeteksi — untuk highlight visual
+    // Mode generate: cukup SATU field perwakilan per grup radio dan per
+    // name="x[]" — token di dalamnya ({{acak}}, {{nama}}, dll) menyebar
+    // sendiri ke anggota grup lainnya saat fill.
+    const seenRadio = new Set();
+    const seenArray = new Set();
 
     // Capture fokus modal (setting, default ON): saat ada modal <dialog>
     // terbuka, hanya field di dalam modal yang dipindai — filter, pagination,
@@ -480,14 +661,55 @@
     } catch {
       root = document; // setting tak terbaca — pakai pemindaian seluruh halaman
     }
+
+    // Mode generate: baca pengaturan pengecualian field non-isian
+    // (search/filter/pagination) + daftar pengecualian elemen hasil 🎯.
+    // Gagal baca → pakai bawaan.
+    let skipNonForm = true;
+    let excludeKws = GEN_EXCLUDE_FALLBACK.split(',');
+    let exclusionRules = [];
+    if (gen) {
+      try {
+        skipNonForm = await DB.getGenSkipNonForm();
+        excludeKws = (await DB.getGenExcludeKeywords()).split(',');
+        const allRules = await DB.getGenExclusions();
+        // Aturan hanya berlaku di situs dengan urlPattern yang cocok
+        exclusionRules = allRules.filter(
+          (x) => !x.urlPattern || DB.isMatch(x.urlPattern, location.href)
+        );
+      } catch {
+        /* pakai bawaan di atas */
+      }
+    }
+
     root.querySelectorAll(FILLABLE).forEach((el) => {
       if (!isVisibleField(el) || !isCapturable(el)) return;
       const t = inputType(el);
 
       // Nilai cadangan dari DOM widget select enhanced (TomSelect dkk) —
-      // dipakai bila field aslinya kosong/tersembunyi total.
+      // dipakai bila field aslinya kosong/tersembunyi total. Dideklarasikan
+      // di level callback karena dirujuk lagi saat penugasan nilai di
+      // bawah; mode generate tidak membaca nilai sama sekali.
       let wItems = null;
-      if (t === 'checkbox' || t === 'radio') {
+
+      if (gen) {
+        // Generate menyertakan field yang KOSONG sekalipun — justru itu
+        // sasarannya. Field non-isian (search/filter/pagination) dan field
+        // yang kena aturan pengecualian elemen dilewati.
+        if (skipNonForm && isNonFormInput(el, excludeKws)) return;
+        if (matchesExclusion(el, exclusionRules)) return;
+        // Radio & baris dinamis di-dedupe per grup.
+        if (t === 'radio') {
+          const key = el.name || 'sel:' + bestSelector(el).selector;
+          if (seenRadio.has(key)) return;
+          seenRadio.add(key);
+        }
+        const nm = el.getAttribute('name');
+        if (nm && nm.endsWith('[]')) {
+          if (seenArray.has(nm)) return;
+          seenArray.add(nm);
+        }
+      } else if (t === 'checkbox' || t === 'radio') {
         if (!el.checked) return; // hanya state terisi yang dicatat
       } else if (t === 'select') {
         const sel = [...el.selectedOptions].map((o) => o.value);
@@ -510,7 +732,24 @@
       };
       const ar = arrayRowInfo(el);
       if (ar) field.arrayRow = ar;
-      if (t === 'checkbox') {
+      if (gen) {
+        // Nilai = token data dummy; di-resolve jadi nilai nyata saat FILL.
+        // Password tetap sensitive (tersegel bila vault aktif).
+        const token = window.Gen
+          ? window.Gen.inferToken({
+              label: field.label,
+              type: t,
+              name: el.getAttribute('name') || '',
+              id: el.id || '',
+            })
+          : '{{acak}}';
+        if (t === 'radio') {
+          field.value = true;
+          field.radioValue = token;
+        } else {
+          field.value = token;
+        }
+      } else if (t === 'checkbox') {
         field.value = true;
       } else if (t === 'radio') {
         field.value = true;
@@ -664,6 +903,37 @@
     }
   }
 
+  /* ---------- token {{acak}} (di-resolve agent-side) ---------- */
+
+  /* {{acak}} butuh konteks halaman (opsi select/radio yang benar-benar
+     ada), jadi sengaja tidak di-resolve oleh placeholder di popup/panel —
+     melainkan di sini, tepat sebelum field diisi. */
+  const ACAK_RE = /\{\{\s*acak\s*\}\}/;
+
+  function hasAcak(v) {
+    return Array.isArray(v)
+      ? v.some((x) => typeof x === 'string' && ACAK_RE.test(x))
+      : typeof v === 'string' && ACAK_RE.test(v);
+  }
+
+  /* Opsi layak dipilih acak: bukan disabled, bukan value kosong, dan bukan
+     placeholder umum ("— Pilih —", "Pilih...", "-- Select --"). */
+  function randomOptionOf(el) {
+    const garis = /^(?:--|–|—|=|·|\*|\.|\s)+$/;
+    const pilih = /^(?:silah?kan\s+)?(?:pilih|pilihlah|select|plih)\b/i;
+    let pool = [...el.options].filter(
+      (o) =>
+        !o.disabled &&
+        o.value !== '' &&
+        !garis.test(o.text.trim()) &&
+        !pilih.test(o.text.trim())
+    );
+    if (!pool.length) {
+      pool = [...el.options].filter((o) => !o.disabled && o.value !== '');
+    }
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  }
+
   async function fillOne(field) {
     const fail = (reason, el, extra) => {
       if (el) flash(el, false);
@@ -702,14 +972,55 @@
 
     try {
       if (t === 'checkbox') {
-        el.checked = !!field.value;
+        // {{acak}} → centang / hilangkan centang secara acak
+        el.checked =
+          typeof field.value === 'string' && ACAK_RE.test(field.value)
+            ? Math.random() < 0.5
+            : !!field.value;
         fire(el, 'click');
         fire(el, 'change');
       } else if (t === 'radio') {
+        // {{acak}} → pilih satu radio acak dari grup yang sama (bukan
+        // selalu radio yang tersimpan di profile)
+        if (
+          typeof field.radioValue === 'string' &&
+          ACAK_RE.test(field.radioValue) &&
+          el.name
+        ) {
+          const group = [...document.querySelectorAll('input[type="radio"]')].filter(
+            (r) => r.name === el.name && !r.disabled && isVisibleField(r)
+          );
+          if (group.length > 1) el = group[Math.floor(Math.random() * group.length)];
+        }
         el.checked = true;
         fire(el, 'click');
         fire(el, 'change');
       } else if (t === 'select') {
+        // {{acak}} → pilih opsi acak dari opsi asli halaman; select
+        // multiple dapat 1–3 opsi sekaligus
+        if (hasAcak(field.value)) {
+          if (el.multiple) {
+            const chosen = [];
+            const taken = new Set();
+            const wantN = 1 + Math.floor(Math.random() * 3);
+            let guard = 20;
+            while (chosen.length < wantN && guard-- > 0) {
+              const o = randomOptionOf(el);
+              if (o && !taken.has(o.value)) {
+                taken.add(o.value);
+                chosen.push({ value: o.value, text: o.text.trim() });
+              }
+            }
+            if (!chosen.length) return fail('Tidak ada opsi untuk {{acak}}', el);
+            field.value = chosen.map((c) => c.value);
+            field.text = chosen.map((c) => c.text).join(', ');
+          } else {
+            const o = randomOptionOf(el);
+            if (!o) return fail('Tidak ada opsi untuk {{acak}}', el);
+            field.value = o.value;
+            field.text = o.text.trim();
+          }
+        }
         const wanted = (Array.isArray(field.value) ? field.value : [field.value]).map(String);
 
         /* Jalur widget dulu: klik opsi di UI widget-nya agar state internal
@@ -768,8 +1079,32 @@
         }
         fire(el, 'change');
       } else {
+        let txt = String(field.value == null ? '' : field.value);
+        // Sisa {{acak}} pada input teks/textarea → kata acak pendek
+        if (ACAK_RE.test(txt)) {
+          txt = txt.replace(/\{\{\s*acak\s*\}\}/g, () =>
+            window.Gen ? window.Gen.word() : 'qa'
+          );
+        }
+        // <input type="date"> hanya menerima YYYY-MM-DD — nilai lain
+        // DITOLAK diam-diam oleh browser (field tetap kosong). Normalisasi:
+        // konversi DD/MM/YYYY (urutan dibalik bila bulan > 12), dan bila
+        // tetap tidak valid (mis. token belum ter-resolve) → tanggal acak.
+        if (t === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
+          const p2 = (s) => String(s).padStart(2, '0');
+          const m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/.exec(txt.trim());
+          if (m) {
+            let dd = m[1];
+            let mm = m[2];
+            if (+mm > 12 && +dd <= 12) [dd, mm] = [mm, dd];
+            txt = m[3] + '-' + p2(mm) + '-' + p2(dd);
+          }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(txt)) {
+            txt = window.Gen ? window.Gen.tanggal() : txt;
+          }
+        }
         el.focus();
-        setNativeValue(el, String(field.value == null ? '' : field.value));
+        setNativeValue(el, txt);
         fire(el, 'input');
         fire(el, 'change');
         el.blur();
@@ -805,7 +1140,13 @@
   }
 
   /* Diekspos untuk panel cepat (content/widget.js) yang berjalan di world yang sama */
-  window.__qaFormAgent = { capture, fill, clearCaptureHighlight };
+  window.__qaFormAgent = {
+    capture,
+    fill,
+    clearCaptureHighlight,
+    startPick,
+    cancelPick,
+  };
 
   /* ---------- message router ---------- */
 
@@ -816,6 +1157,13 @@
     } else if (msg.type === 'QA_CAPTURE') {
       // capture kini async (membaca setting) — respons dikirim setelah selesai
       capture().then(
+        (data) => sendResponse({ ok: true, data }),
+        () => sendResponse({ ok: false })
+      );
+      return true;
+    } else if (msg.type === 'QA_GENERATE') {
+      // generate profile: struktur form dipindai, value = token data dummy
+      capture({ generate: true }).then(
         (data) => sendResponse({ ok: true, data }),
         () => sendResponse({ ok: false })
       );

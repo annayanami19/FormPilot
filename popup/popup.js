@@ -8,8 +8,9 @@ const UNSUPPORTED = /^(chrome|edge|about|devtools|view-source|chrome-extension):
 
 let TAB = null;
 let PROFILES = [];
-let PENDING = null; // hasil capture yang menunggu disimpan
-let CANDIDATES = []; // kandidat profile untuk diupdate dari capture ini
+let PENDING = null; // hasil capture/generate yang menunggu disimpan
+let PENDING_SRC = 'capture'; // asal PENDING: 'capture' | 'generate' — menentukan penanda profile
+let CANDIDATES = []; // kandidat profile untuk diupdate dari capture/generate ini
 let VAULT_PASS = null; // passphrase sesi popup (memori saja)
 let vaultAction = null; // aksi tertunda yang lanjut setelah passphrase dibuka
 
@@ -37,12 +38,19 @@ async function ensureAgent(tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ['content/form-agent.js'],
+      files: ['lib/generator.js', 'content/form-agent.js'],
     });
     return true;
   } catch {
     return false;
   }
+}
+
+/* Sembunyi/tampilkan kedua tombol aksi (Capture & Generate) — dipakai
+   saat form capture/gen terbuka supaya panelnya tidak dobel tombol. */
+function showActions(show) {
+  $('#btnCapture').classList.toggle('hidden', !show);
+  $('#btnGenerate').classList.toggle('hidden', !show);
 }
 
 async function showResult(message, kind) {
@@ -235,6 +243,9 @@ async function renderList() {
       item.innerHTML =
         '<div class="item-main">' +
         '<span class="name">' + esc(p.name) + '</span>' +
+        (p.generated
+          ? '<span class="badge gen" title="Hasil ⚡ Generate — isinya token data dummy, di-generate ulang tiap Fill">⚡ gen</span>'
+          : '') +
         '<span class="meta">' + (p.fields ? p.fields.length : 0) + ' field' +
         (p.urlPattern ? ' • ' + esc(p.urlPattern) : '') + '</span>' +
         '</div>' +
@@ -277,9 +288,13 @@ async function fillProfile(id) {
 }
 
 async function performFill(p, fields) {
+  // Satu persona acak per eksekusi fill — token yang sama di beberapa
+  // field (mis. {{username}} di "Username" & "Konfirmasi username")
+  // menghasilkan nilai yang SAMA; fill berikutnya persona baru.
+  const persona = window.Gen ? window.Gen.buildPersona() : null;
   const values = (fields || []).map((f) => ({
     ...f,
-    value: typeof f.value === 'string' ? resolvePlaceholders(f.value) : f.value,
+    value: typeof f.value === 'string' ? resolvePlaceholders(f.value, persona) : f.value,
   }));
 
   let res;
@@ -336,6 +351,7 @@ async function startCapture() {
     return;
   }
   PENDING = res.data;
+  PENDING_SRC = 'capture';
   const capTitle = $('#capTitle');
   capTitle.textContent = PENDING.title || '(tanpa judul halaman)';
   capTitle.title = capTitle.textContent;
@@ -369,7 +385,75 @@ async function startCapture() {
   }
   renderUpdateCandidates();
   $('#capturePanel').classList.remove('hidden');
-  $('#btnCapture').classList.add('hidden');
+  showActions(false);
+  $('#profName').focus();
+}
+
+/* ---------- generate profile (data dummy) ---------- */
+
+/* Seperti capture, tapi field yang kosong pun disertakan dan nilainya
+   berupa token data dummy ({{nama}}, {{email}}, {{acak}}, ...) yang
+   di-resolve menjadi nilai nyata setiap kali profile di-Fill. */
+async function startGenerate() {
+  if (!TAB) return;
+  $('#logSec').classList.add('hidden');
+  if (TAB.url && UNSUPPORTED.test(TAB.url)) {
+    showResult('Halaman ini tidak didukung (chrome://, web store, dll).', 'err');
+    return;
+  }
+  const ready = await ensureAgent(TAB.id);
+  if (!ready) {
+    showResult('Gagal menyuntikkan script ke halaman ini.', 'err');
+    return;
+  }
+  let res;
+  try {
+    res = await chrome.tabs.sendMessage(TAB.id, { type: 'QA_GENERATE' });
+  } catch (e) {
+    showResult('Gagal generate: ' + e.message, 'err');
+    return;
+  }
+  if (!res || !res.ok || !res.data || !res.data.count) {
+    showResult('Tidak ada field yang bisa di-generate di halaman ini.', 'err');
+    return;
+  }
+  PENDING = res.data;
+  PENDING_SRC = 'generate';
+  const capTitle = $('#capTitle');
+  capTitle.textContent = PENDING.title || '(tanpa judul halaman)';
+  capTitle.title = capTitle.textContent;
+  const sens = PENDING.fields.filter((f) => f.sensitive).length;
+  $('#capInfo').textContent =
+    PENDING.count + ' field akan diisi data dummy — nilai acak baru dibuat setiap kali Fill.' +
+    (sens ? ' Termasuk ' + sens + ' password acak.' : '');
+  $('#profName').value = 'Dummy — ' + (PENDING.title || 'form').slice(0, 50);
+  try {
+    $('#profGroup').value = new URL(TAB.url).hostname;
+  } catch {
+    $('#profGroup').value = '';
+  }
+  // Generate juga bisa memperbarui profile serupa (mis. profile capture
+  // lama di-timpa field token) — penanda ⚡ generate-nya ikut menyala.
+  CANDIDATES = await DB.findUpdateCandidates(TAB.url, PENDING.fields);
+  let auto = false;
+  if (CANDIDATES.length) {
+    try {
+      auto = await DB.getAutoUpdateProfiles();
+    } catch {
+      /* setting tak terbaca — pakai jalur manual */
+    }
+  }
+  if (auto) {
+    try {
+      await autoUpdateCandidates(); // tanpa menampilkan form capture
+      return;
+    } catch {
+      /* jatuh ke form manual bila auto gagal */
+    }
+  }
+  renderUpdateCandidates();
+  $('#capturePanel').classList.remove('hidden');
+  showActions(false);
   $('#profName').focus();
 }
 
@@ -390,7 +474,10 @@ function renderUpdateCandidates() {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = '🔄 ' + c.profile.name + ' (' + c.overlap + ' field sama)';
-    b.title = 'Timpa field profile ini dengan hasil capture sekarang';
+    b.title =
+      'Timpa field profile ini dengan hasil ' +
+      (PENDING_SRC === 'generate' ? '⚡ Generate' : 'Capture') +
+      ' sekarang';
     b.addEventListener('click', () => updateProfile(c.profile.id));
     box.appendChild(b);
   }
@@ -406,6 +493,9 @@ async function updateProfile(id) {
 
 async function finishUpdateProfile(p, fields) {
   p.fields = fields;
+  // Jalur update menentukan penanda: hasil ⚡ Generate menyalakan,
+  // hasil Capture memadamkan.
+  p.generated = PENDING_SRC === 'generate';
   p.updatedAt = Date.now();
   await DB.upsertProfile(p);
   PENDING = null;
@@ -413,7 +503,7 @@ async function finishUpdateProfile(p, fields) {
   clearCaptureHighlight();
   $('#capturePanel').classList.add('hidden');
   $('#capUpdate').classList.add('hidden');
-  $('#btnCapture').classList.remove('hidden');
+  showActions(true);
   showResult('Profile "' + p.name + '" diperbarui (' + p.fields.length + ' field).', 'ok');
   PROFILES = await DB.getProfiles();
   await renderList();
@@ -431,6 +521,7 @@ async function autoUpdateCandidates() {
     if (!p) continue;
     const ok = await gatedPromise(capFields, 'store', async (fields) => {
       p.fields = fields;
+      p.generated = PENDING_SRC === 'generate';
       p.updatedAt = Date.now();
       await DB.upsertProfile(p);
     });
@@ -442,7 +533,7 @@ async function autoUpdateCandidates() {
   clearCaptureHighlight();
   $('#capturePanel').classList.add('hidden');
   $('#capUpdate').classList.add('hidden');
-  $('#btnCapture').classList.remove('hidden');
+  showActions(true);
   PROFILES = await DB.getProfiles();
   await renderList();
   showResult(
@@ -478,6 +569,7 @@ async function finishSaveCapture(name, pattern, fields) {
     tags: [],
     notes: '',
     archived: false,
+    generated: PENDING_SRC === 'generate',
     createdAt: now,
     updatedAt: now,
     fields,
@@ -485,7 +577,7 @@ async function finishSaveCapture(name, pattern, fields) {
   PENDING = null;
   clearCaptureHighlight();
   $('#capturePanel').classList.add('hidden');
-  $('#btnCapture').classList.remove('hidden');
+  showActions(true);
   PROFILES = await DB.getProfiles();
   await fillGroupDatalist();
   await renderList();
@@ -499,7 +591,7 @@ function cancelCapture() {
   clearCaptureHighlight();
   $('#capturePanel').classList.add('hidden');
   $('#capUpdate').classList.add('hidden');
-  $('#btnCapture').classList.remove('hidden');
+  showActions(true);
 }
 
 /* ---------- init ---------- */
@@ -512,6 +604,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (TAB && TAB.url && UNSUPPORTED.test(TAB.url)) {
     $('#btnCapture').disabled = true;
     $('#btnCapture').title = 'Halaman internal browser tidak didukung';
+    $('#btnGenerate').disabled = true;
+    $('#btnGenerate').title = 'Halaman internal browser tidak didukung';
   }
 
   PROFILES = await DB.getProfiles();
@@ -519,6 +613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderList();
 
   $('#btnCapture').addEventListener('click', startCapture);
+  $('#btnGenerate').addEventListener('click', startGenerate);
   $('#btnCloseLog').addEventListener('click', () => $('#logSec').classList.add('hidden'));
   $('#btnSaveCapture').addEventListener('click', saveCapture);
   $('#btnCancelCapture').addEventListener('click', cancelCapture);

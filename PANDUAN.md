@@ -25,7 +25,7 @@
 9. [Ganti Base URL Massal](#9-ganti-base-url-massal)
 10. [Keamanan — Enkripsi Field Sensitif](#10-keamanan--enkripsi-field-sensitif)
 11. [Backup Otomatis & Export/Import](#11-backup-otomatis---exportimport)
-12. [Placeholder Nilai Dinamis](#12-placeholder-nilai-dinamis)
+12. [Placeholder Nilai Dinamis & Data Dummy](#12-placeholder-nilai-dinamis--data-dummy)
 13. [Batasan yang Perlu Diketahui](#13-batasan-yang-perlu-diketahui)
 14. [Troubleshooting](#14-troubleshooting)
 15. [Privasi & Penyimpanan Data](#15-privasi--penyimpanan-data)
@@ -101,6 +101,18 @@ Widget select modern (**TomSelect, Select2, Choices.js**) yang menyembunyikan fi
 ### Memperbarui profil lama
 
 Saat capture, FormPilot mendeteksi **profil serupa** (URL cocok + ada field yang sama) dan menampilkan tombol **🔄 Perbarui (N field sama)** — klik untuk menimpa field profil lama dengan hasil capture sekarang, tanpa membuat profil baru.
+
+### ⚡ Generate Profile — data dummy otomatis
+
+Selain merekam nilai yang sudah kamu isi, FormPilot bisa **membuatkan datanya**:
+
+- **Popup**: klik **⚡ Generate Profile** · **Panel cepat**: klik **⚡ Generate**
+- Struktur form dipindai (field kosong pun diambil), lalu tiap field diberi **token data dummy** yang dipilih otomatis dari label & tipe field-nya: field "Email" → `{{email}}`, "Nama" → `{{nama}}`, select agama/kota/apa pun → `{{acak}}` (pilihan acak dari opsi asli halaman), dst.
+- Simpan seperti capture biasa. **Setiap kali profil ini di-Fill, nilai acak baru dibuat** — satu *persona* konsisten per eksekusi: "Username" dan "Konfirmasi username" nilainya SAMA, email konsisten dengan nama, kota-provinsi-kode pos selaras.
+- **Field non-isian otomatis dilewati**: kolom search, filter, dan pagination (input `type="search"` atau yang label/name/id/placeholder-nya mengandung kata kunci seperti *search, cari, keyword, kata kunci, filter, page, halaman, pagination*) tidak di-generate. Daftar kata kuncinya bisa diedit di ⚙ Kelola → card **🚫 Pengecualian Generate**, atau dimatikan bila mau menyertakan semuanya.
+- **🎯 Ambil — pengecualian elemen pilihan sendiri**: kalau masih ada field nyasar, klik **🎯 Ambil** di panel FP → panel menyusut → arahkan ke elemen yang mau dikecualikan (ter-highlight garis putus-putus merah; boleh klik kotak pembungkusnya, semua field di dalamnya ikut terkecualikan) → klik → beri nama → **Simpan profile**. Field yang cocok dilewati saat Generate, hanya di situs dengan URL pattern yang sama, sampai kamu hapus di card **🚫 Pengecualian Generate** halaman Kelola. Tekan **Esc** untuk membatalkan mode pilih.
+- **Penanda ⚡ gen**: profile hasil Generate ditandai badge amber **⚡ gen** di popup, panel FP, dan halaman Kelola — biar beda dari hasil Capture. Penandanya dinamis: profile ⚡ yang di-update lewat 🔄 Capture kehilangan penandanya, dan profile Capture yang di-update lewat 🔄 Generate (Generate juga menawarkan kandidat update bila ada profile serupa) otomatis mendapatkannya.
+- Cocok untuk pengujian registrasi/input data berulang tanpa mikir data palsu. Daftar lengkap token: lihat [bagian 12](#12-placeholder-nilai-dinamis--data-dummy).
 
 ---
 
@@ -288,17 +300,49 @@ Ringkas: **Backup Otomatis** = rutin & otomatis ke folder pilihanmu (bagian 8.5)
 
 ---
 
-## 12. Placeholder Nilai Dinamis
+## 12. Placeholder Nilai Dinamis & Data Dummy
 
-Nilai field di editor bisa memakai placeholder yang **diproses saat Fill** (bukan saat capture), jadi selalu segar:
+Nilai field di editor bisa memakai placeholder yang **diproses saat Fill** (bukan saat capture), jadi selalu segar. Semua token bisa diketik manual di editor (ada tombol **🎲** untuk menyisipkan).
+
+### Waktu & utilitas
 
 | Placeholder | Hasil | Contoh |
 |---|---|---|
-| `{{today}}` | Tanggal hari ini, `YYYY-MM-DD` | `2026-09-08` |
-| `{{today+30}}` | Tanggal + N hari (offset bebas, boleh minus: `{{today-3}}`) | `2026-10-08` |
+| `{{today}}` | Tanggal hari ini, `YYYY-MM-DD` | `2026-09-18` |
+| `{{today+30}}` | Tanggal + N hari (offset bebas, boleh minus: `{{today-3}}`) | `2026-10-18` |
 | `{{time}}` | Jam `HH:MM` | `14:05` |
 | `{{timestamp}}` | Milidetik epoch | `1789025400000` |
 | `{{uuid}}` | UUID acak | `3f8a2c…` |
+| `{{angka:min-max}}` | Angka acak dalam rentang | `{{angka:1-999}}` → `482` |
+
+### Data dummy (persona Indonesia)
+
+Satu *persona* dibangun sekali per eksekusi Fill — **token yang sama di beberapa field menghasilkan nilai yang sama** (cocok untuk field "konfirmasi"), dan nilai-nilainya saling konsisten (username diturunkan dari nama, email dari username, kota–provinsi–kode pos selaras). Fill berikutnya = persona baru.
+
+| Token | Hasil | Contoh |
+|---|---|---|
+| `{{nama}}` | Nama lengkap Indonesia | `Budi Santoso` |
+| `{{nama_depan}}` / `{{nama_belakang}}` | Bagian nama | `Budi` / `Santoso` |
+| `{{username}}` | Username turunan nama | `budi.santoso82` |
+| `{{email}}` | Email turunan username | `budi.santoso82@gmail.com` |
+| `{{password}}` | Password acak kuat (12 karakter) | `Kuc1ng#Lomp4t` |
+| `{{hp}}` | Nomor HP format Indonesia | `0812-3456-7890` |
+| `{{telepon}}` | Telepon rumah/kantor | `(021) 555-0134` |
+| `{{nik}}` | 16 digit pola NIK | `3273012509860002` |
+| `{{tgl_lahir}}` | Tanggal lahir (usia 18–55 th) | `1986-09-25` |
+| `{{alamat}}` | Alamat jalan | `Jl. Merdeka No. 45` |
+| `{{kota}}` / `{{provinsi}}` / `{{kode_pos}}` | Lokasi konsisten satu persona | `Bandung` / `Jawa Barat` / `40115` |
+| `{{agama}}` | Salah satu 6 agama resmi | `Hindu` |
+| `{{pekerjaan}}` / `{{perusahaan}}` | Pekerjaan / instansi | `Guru` / `PT Maju Jaya` |
+
+### Pilihan acak dari halaman: `{{acak}}`
+
+Token khusus yang **di-resolve langsung di halaman target** (bukan di popup), karena pilihannya bergantung pada opsi yang benar-benar ada:
+
+- `<select>` → dipilihkan **satu opsi acak** dari opsi asli halaman (placeholder seperti "— Pilih —" dilewati); select multiple dapat 1–3 opsi.
+- Radio group → satu pilihan acak dari grupnya.
+- Checkbox → centang/hilangkan centang acak (50:50).
+- Input teks → kata acak pendek.
 
 Placeholder tak dikenal dibiarkan apa adanya.
 

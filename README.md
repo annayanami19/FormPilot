@@ -8,7 +8,7 @@ Tanpa server, tanpa helper, tanpa build step — cukup **Load unpacked**.
 
 ### Contoh penggunaan
 
-- **Testing / QA aplikasi** — rekam tiap skenario form sebagai profil (mis. `Registrasi — Skenario A`), isi ulang di tiap regresi tanpa ngetik ulang; placeholder `{{today}}`, `{{timestamp}}`, `{{uuid}}` menjaga data uji selalu segar dan unik.
+- **Testing / QA aplikasi** — rekam tiap skenario form sebagai profil (mis. `Registrasi — Skenario A`), isi ulang di tiap regresi tanpa ngetik ulang; placeholder `{{today}}`, `{{timestamp}}`, `{{uuid}}` dan token data dummy `{{nama}}`, `{{email}}`, `{{acak}}` menjaga data uji selalu segar dan unik.
 - **Input data harian** — form admin/internal yang berulang: input transaksi, data master, pengajuan, approval.
 - **Formulir berulang lainnya** — pendaftaran, timesheet, entry data pelanggan, dan sejenisnya.
 
@@ -17,11 +17,12 @@ Tanpa server, tanpa helper, tanpa build step — cukup **Load unpacked**.
 ## Fitur
 
 - **Capture & Fill form** — simpan kondisi form yang sudah terisi sebagai profil, isi ulang dengan satu klik; hasil fill dilaporkan per field (terisi / diisi manual / gagal beserta alasannya).
-- **Panel cepat tombol FP** — tombol bulat di pojok kanan bawah setiap halaman: daftar profil, cari, Fill, bahkan Capture, tanpa membuka popup. Bisa digeser, posisinya tersimpan.
+- **⚡ Generate Profile (data dummy)** — sekali klik: struktur form dipindai lalu tiap field diisi token data dummy (`{{nama}}`, `{{email}}`, `{{agama}}`, `{{acak}}`, ...) yang di-generate ulang setiap Fill; satu persona konsisten per eksekusi (username = konfirmasi username, email konsisten dengan nama). Bisa juga dipakai manual lewat token di editor (tombol 🎲). Kolom non-isian (search/filter/pagination) dikecualikan otomatis, dan **elemen apa pun bisa dikecualikan manual lewat tombol 🎯 Ambil di panel FP** — dikelola di card 🚫 Pengecualian Generate di halaman Kelola. Profile hasil Generate ditandai badge **⚡ gen** di semua daftar; penandanya otomatis berpindah saat profile di-update lewat jalur sebaliknya (Capture menghapusnya, Generate menyalakannya).
+- **Panel cepat tombol FP** — tombol bulat di pojok kanan bawah setiap halaman: daftar profil, cari, Fill, bahkan Capture & Generate, tanpa membuka popup. Bisa digeser, posisinya tersimpan.
 - **Pintar di dalam modal pop-up** — saat halaman membuka modal (`<dialog>`), panel tetap tampil paling depan dan tetap bisa diklik; capture pun otomatis **fokus ke field di dalam modal** saja sehingga profil tidak tercemar filter/pagination di belakangnya.
 - **Paham widget select modern** — **TomSelect, Select2, dan Choices.js** didukung: capture membaca nilai dari field yang disembunyikan widget, dan fill mengisi lewat UI widget-nya (buka dropdown → klik opsi) sehingga tampilannya ikut terisi.
 - **Grup & pencarian** — profil dikelompokkan per aplikasi/domain, filter "grup sesuai URL" menjaga daftar selalu relevan, pencarian menjangkau sampai label & nilai field.
-- **Placeholder dinamis** — `{{today}}`, `{{today+30}}`, `{{time}}`, `{{timestamp}}`, `{{uuid}}` di-resolve saat fill agar data uji selalu segar.
+- **Placeholder dinamis & data dummy** — `{{today}}`, `{{today+30}}`, `{{time}}`, `{{timestamp}}`, `{{uuid}}` plus token dummy Indonesia (`{{nama}}`, `{{email}}`, `{{hp}}`, `{{nik}}`, `{{agama}}`, `{{kota}}`, `{{angka:1-999}}`, `{{acak}}`, ...) di-resolve saat fill agar data uji selalu segar.
 - **Keamanan** — field password bisa dienkripsi (AES-GCM + PBKDF2) dengan passphrase milikmu; passphrase tidak pernah disimpan.
 - **Keamanan data** — auto backup ke folder pilihanmu (termasuk folder cloud), export/import JSON, fill log sebagai jejak pengujian.
 - **Baris dinamis & select AJAX** — baris tabel `name="x[]"` yang hilang dibuat ulang otomatis; opsi select AJAX yang tidak ada di DOM dibuat ulang dari teks tersimpan.
@@ -58,6 +59,7 @@ Kelola profil, grup, filter, enkripsi, backup, dan log ada di halaman **⚙ Kelo
 | Izinkan tombol FP digeser | Tombol FP bisa ditarik ke mana saja | OFF |
 | Grup sesuai URL | Hanya tampilkan grup yang cocok dengan halaman aktif | ON |
 | Fokus Capture ke modal | Saat modal terbuka, Capture hanya mengambil field di dalam modal | ON |
+| Kecualikan field non-isian saat Generate | Kolom search/filter/pagination dilewati ⚡ Generate — kata kunci & daftar pengecualian elemen ada di card 🚫 Pengecualian Generate | ON |
 | Perbarui profil otomatis | Capture yang menemukan profil serupa langsung memperbaruinya (section sendiri di Kelola) | OFF |
 | Update otomatis | Periksa versi baru extension tiap 6 jam dari sumber versi (bisa diedit); ikon diberi tanda bila ada yang lebih baru | OFF |
 
@@ -83,7 +85,8 @@ options/                  # Pengaturan, kelola profil, editor mapping, export/im
 content/form-agent.js     # agent self-contained: scan/capture/fill di halaman (termasuk widget select)
 content/widget.js         # panel cepat tombol "FP" di pojok kanan bawah (Shadow DOM, tahan modal)
 lib/db.js                 # wrapper chrome.storage.local + CRUD grup + grouping/matching
-lib/placeholder.js        # resolver {{...}}
+lib/placeholder.js        # resolver {{...}} (tanggal/waktu/uuid + delegasi ke Gen)
+lib/generator.js          # Gen — generator data dummy (persona Indonesia, inferToken, {{acak}})
 lib/vault.js              # enkripsi nilai sensitif (AES-GCM + PBKDF2)
 lib/backup.js             # auto backup ke folder pilihan user
 CHANGELOG.md              # riwayat perubahan per versi
@@ -93,7 +96,7 @@ icons/                    # ikon + script generator (make-icons.ps1)
 
 ## Rencana Selanjutnya (backlog)
 
-- Data generator/faker (placeholder data acak: nama, email, telepon)
+- Custom data pool generator (edit sendiri daftar nama/agama/kota di halaman Kelola)
 - Multi-value boundary (satu profil, banyak baris data — data-driven testing)
 - Skenario multi-step (isi beberapa halaman berurutan sebagai satu rangkaian)
 - Dukungan shadow DOM & iframe

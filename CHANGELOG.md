@@ -5,6 +5,28 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.15.0] — 2026-09-18
+
+### Ditambahkan
+
+- **⚡ Generate Profile — data dummy otomatis** (popup & panel cepat): sekali klik memindai struktur form (field kosong pun disertakan) lalu tiap field diisi **token data dummy** yang dipilih otomatis dari label & tipe field-nya. Simpan sebagai profile biasa — setiap Fill, nilai acak baru di-generate.
+- **Token data dummy Indonesia** (`lib/generator.js`, global `Gen`): `{{nama}}`, `{{nama_depan}}`, `{{nama_belakang}}`, `{{username}}`, `{{email}}`, `{{password}}`, `{{hp}}`, `{{telepon}}`, `{{nik}}`, `{{tgl_lahir}}`, `{{alamat}}`, `{{kota}}`, `{{provinsi}}`, `{{kode_pos}}`, `{{agama}}`, `{{pekerjaan}}`, `{{perusahaan}}`, `{{angka:min-max}}`, `{{acak}}` — plus alias Inggris (`{{email}}`-style: `first_name`, `phone`, `city`, `postal_code`, dll).
+- **Persona konsisten per eksekusi fill**: token sama di beberapa field menghasilkan nilai sama (field "konfirmasi username/password" otomatis senilai), dan nilai antar-token saling konsisten (username diturunkan dari nama, email dari username, kota–provinsi–kode pos selaras). Fill berikutnya = persona baru. Token lama (`{{uuid}}` dll) perilakunya tidak berubah.
+- **`{{acak}}` di-resolve agent-side** di halaman target: select → satu opsi acak dari opsi asli (placeholder "— Pilih —" dilewati; select multiple 1–3 opsi), radio → pilihan acak dari grup, checkbox → acak 50:50, input teks → kata acak. Ia sengaja tidak di-resolve di popup karena butuh konteks DOM halaman.
+- **Heuristik `inferToken`**: field select/checkbox/radio → `{{acak}}`; label seperti "email", "nama depan", "no. hp", "NIK/KTP", "agama", "kode pos", "tanggal lahir", "nama perusahaan" (dicek sebelum `nama` generik) masing-masing memetakan ke token yang tepat; fallback per tipe input (`email`/`tel`/`number`/`date`/`textarea`).
+- **Editor Kelola**: tombol **🎲** per baris Field Mapping membuka menu token untuk menyisipkan token ke nilai field (juga token lama `{{today}}` dst); nilai `{{token}}` pada checkbox/radio kini utuh tersimpan (tidak dikonversi boolean).
+- **Pengecualian field non-isian saat ⚡ Generate** (default ON): input `type="search"` serta field yang label/name/id/placeholder-nya mengandung kata kunci pencarian/filter/pagination (*search, cari, pencarian, keyword, kata kunci, filter, page, halaman, pagination, per page, q*) tidak di-generate. Daftar kata kunci bisa diedit di ⚙ Kelola → Pengaturan; pencocokan kata utuh (pemisah `_`, `-`, `.` dinormalkan), kata pendek ≤2 huruf hanya dicocokkan persis ke name/id. Capture biasa tidak terpengaruh.
+- **🎯 Ambil — pengecualian elemen manual** (panel FP → 🎯 Ambil): masuk mode pilih elemen (hover = highlight garis putus-putus, klik = pilih, Esc = batal; panel menyusut agar tidak menutupi target; kursor crosshair dipasang ke seluruh halaman agar tidak berkedip saat berpindah elemen). Elemen terpilih disimpan sebagai aturan pengecualian `{selector, fallbacks, urlPattern}` — field yang cocok (termasuk yang berada DI DALAM elemen terpilih, mis. kotak search bar utuh) dilewati saat ⚡ Generate, hanya di situs dengan URL pattern yang sama, sampai dihapus. Dikelola di card **🚫 Pengecualian Generate** halaman Kelola: daftar nama/URL pattern/selector dengan **pencarian & filter URL pattern**, hapus per baris, hapus semua (ikut segar via storage.onChanged). Setting checkbox & kata kunci pengecualian pindah ke card ini.
+- **Badge penanda "⚡ gen"** pada profile hasil Generate (popup, panel FP, tabel Kelola; amber agar beda dari badge "match" hijau). Penandanya dinamis mengikuti jalur update terakhir: profile ⚡ yang ditimpa hasil Capture kehilangan penanda, profile Capture yang ditimpa hasil Generate mendapat penanda. Kini alur Generate juga mendeteksi profile serupa (🔄 Perbarui + dukungan update otomatis) seperti Capture — sebelumnya Generate selalu membuat profile baru.
+- Dokumentasi: README (fitur & struktur), PANDUAN (bagian 4 & 12 ditulis ulang), cheat sheet token di Panduan Cepat halaman Kelola.
+
+### Diubah
+
+- `resolvePlaceholders(text, persona)` kini menerima persona opsional; token tak dikenal didelegasikan ke `Gen` bila tersedia — token tak dikenal tetap dibiarkan apa adanya bila tidak.
+- `lib/generator.js` masuk daftar content script (setelah `lib/placeholder.js`) dan dimuat popup/options; on-demand injection agent menyertakan generator juga.
+
+---
+
 ## [0.14.4] — 2026-09-14
 
 ### Diperbaiki
