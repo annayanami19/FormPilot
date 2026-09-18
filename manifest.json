@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FormPilot",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "FormPilot — simpan kondisi form testing sebagai profile dan isi ulang dengan satu klik.",
   "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage", "alarms"],
   "background": {
@@ -17,6 +17,7 @@
         "lib/generator.js",
         "lib/vault.js",
         "content/form-agent.js",
+        "content/autofill.js",
         "content/widget.js"
       ],
       "run_at": "document_idle"

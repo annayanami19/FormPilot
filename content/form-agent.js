@@ -637,6 +637,7 @@
 
   async function capture(opts) {
     const gen = !!(opts && opts.generate);
+    lastCaptureAt = Date.now();
     const fields = [];
     const hitEls = []; // elemen terdeteksi — untuk highlight visual
     // Mode generate: cukup SATU field perwakilan per grup radio dan per
@@ -791,6 +792,13 @@
   }
 
   /* ---------- fill ---------- */
+
+  /* Stempel waktu aksi manual terakhir (fill/capture/generate dari popup,
+     panel, atau user) — dipakai engine auto fill untuk membatalkan dirinya
+     bila user sempat berintervensi lebih dulu. Panggilan internal auto fill
+     (opts.internal) sengaja TIDAK mengubah lastFillAt. */
+  let lastFillAt = 0;
+  let lastCaptureAt = 0;
 
   function setNativeValue(el, value) {
     const proto = el.tagName === 'TEXTAREA'
@@ -1124,7 +1132,64 @@
     }
   }
 
-  async function fill(values) {
+  /* Statistik rencana fill TANPA mengisi apa pun — dipakai engine auto
+     fill (content/autofill.js) untuk menilai seberapa cocok profile dengan
+     halaman. Baris dinamis dihitung dari baris yang SUDAH ada; baris yang
+     belum ada dihitung "missing" (fill asli tetap bisa membuatnya). */
+  function planFill(values) {
+    const perField = [];
+    let resolved = 0;
+    let empty = 0;
+    let occupied = 0;
+    let missing = 0;
+    for (const f of values || []) {
+      let el = null;
+      const ar = f.arrayRow;
+      if (ar && ar.name) {
+        let table = (ar.tableId && document.getElementById(ar.tableId)) || null;
+        if (!table) {
+          const any = document.querySelector(nameSelector(ar.name));
+          table = any ? any.closest('table') || rowGroupOf(any, ar.name) : null;
+        }
+        el = table ? rowsInTable(table, ar.name)[ar.index] || null : null;
+      } else {
+        el = resolveEl(f);
+      }
+      if (!el) {
+        perField.push('missing');
+        missing++;
+        continue;
+      }
+      resolved++;
+      const t = inputType(el);
+      if (t === 'checkbox' || t === 'radio') {
+        if (el.checked) {
+          perField.push('occupied');
+          occupied++;
+        } else {
+          perField.push('empty');
+          empty++;
+        }
+      } else if (String(el.value || '').trim() !== '') {
+        perField.push('occupied');
+        occupied++;
+      } else {
+        perField.push('empty');
+        empty++;
+      }
+    }
+    return {
+      total: (values || []).length,
+      resolved,
+      empty,
+      occupied,
+      missing,
+      perField,
+    };
+  }
+
+  async function fill(values, opts) {
+    if (!(opts && opts.internal)) lastFillAt = Date.now();
     backfillArrayRows(values || []);
     // Sekuensial (bukan map paralel) — urutan field penting untuk select
     // bertingkat, dan jalur widget kini butuh await.
@@ -1139,13 +1204,18 @@
     };
   }
 
-  /* Diekspos untuk panel cepat (content/widget.js) yang berjalan di world yang sama */
+  /* Diekspos untuk panel cepat (content/widget.js) dan engine auto fill
+     (content/autofill.js) yang berjalan di world yang sama. lastAction()
+     berbentuk fungsi supaya stempel waktunya selalu terkini (bukan snapshot
+     saat expose). */
   window.__qaFormAgent = {
     capture,
     fill,
+    planFill,
     clearCaptureHighlight,
     startPick,
     cancelPick,
+    lastAction: () => ({ lastFillAt, lastCaptureAt }),
   };
 
   /* ---------- message router ---------- */

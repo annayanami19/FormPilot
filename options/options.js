@@ -250,6 +250,9 @@ function renderProfiles() {
         '<td>' + (p.fields ? p.fields.length : 0) + '</td>' +
         '<td>' + esc(fmtTime(p.updatedAt)) + '</td>' +
         '<td>' +
+        '<button class="mini' + (p.autoPin ? ' pin-on' : '') + '" data-act="pin" data-id="' + esc(p.id) + '" title="' +
+        (p.autoPin ? 'Ter-pin untuk Auto Fill — klik untuk lepas' : 'Pin untuk Auto Fill (hanya profile pin yang bisa terisi otomatis)') +
+        '">⚡</button>' +
         '<button class="mini" data-act="edit" data-id="' + esc(p.id) + '">Edit</button>' +
         '<button class="mini" data-act="dup" data-id="' + esc(p.id) + '">Duplikat</button>' +
         '<button class="mini danger" data-act="del" data-id="' + esc(p.id) + '">Hapus</button>' +
@@ -260,6 +263,17 @@ function renderProfiles() {
 }
 
 /* ---------- pengecualian generate ---------- */
+
+/* Pin/un-pin profile untuk Auto Fill — hanya profile pin yang bisa
+   terisi otomatis oleh engine content/autofill.js. */
+async function toggleAutoPin(id) {
+  const p = PROFILES.find((x) => x.id === id);
+  if (!p) return;
+  p.autoPin = !p.autoPin;
+  p.updatedAt = Date.now();
+  await DB.upsertProfile(p);
+  renderProfiles();
+}
 
 /* Tabel daftar pengecualian elemen (card 🚫 Pengecualian Generate) —
    dengan pencarian & filter URL pattern. */
@@ -1118,7 +1132,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (act === 'edit') openEditor(PROFILES.find((x) => x.id === id));
     else if (act === 'dup') duplicateProfile(id);
     else if (act === 'del') deleteProfile(id);
+    else if (act === 'pin') toggleAutoPin(id);
   });
+
+  // Auto fill (card ⚡ Auto Fill) — perubahan langsung tersimpan & live
+  $('#setAutoFillMode').value = await DB.getAutoFillMode();
+  $('#setAutoFillMode').addEventListener('change', (e) => DB.setAutoFillMode(e.target.value));
+
+  $('#setAutoFillMinScore').value = await DB.getAutoFillMinScore();
+  $('#setAutoFillMinScore').addEventListener('change', (e) =>
+    DB.setAutoFillMinScore(e.target.value)
+  );
+
+  $('#setAutoFillAllowMulti').checked = await DB.getAutoFillAllowMulti();
+  $('#setAutoFillAllowMulti').addEventListener('change', (e) =>
+    DB.setAutoFillAllowMulti(e.target.checked)
+  );
+
+  // Durasi notif toast (berwaktu vs sticky — saling eksklusif, default timer 30 dtk)
+  const afToastMode = await DB.getAutoFillToastMode();
+  $('#afToastTimer').checked = afToastMode !== 'sticky';
+  $('#afToastSticky').checked = afToastMode === 'sticky';
+  $('#setAutoFillToastSeconds').value = await DB.getAutoFillToastSeconds();
+  $('#setAutoFillToastSeconds').disabled = afToastMode === 'sticky';
+  const afToastModeChanged = () => {
+    const sticky = $('#afToastSticky').checked;
+    DB.setAutoFillToastMode(sticky ? 'sticky' : 'timer');
+    $('#setAutoFillToastSeconds').disabled = sticky;
+  };
+  $('#afToastTimer').addEventListener('change', afToastModeChanged);
+  $('#afToastSticky').addEventListener('change', afToastModeChanged);
+  $('#setAutoFillToastSeconds').addEventListener('change', (e) =>
+    DB.setAutoFillToastSeconds(e.target.value)
+  );
+  $('#btnAfResetPos').addEventListener('click', () => DB.clearAutoFillToastPos());
 
   $('#btnExport').addEventListener('click', doExport);
   $('#btnImport').addEventListener('click', () => $('#importFile').click());

@@ -5,6 +5,21 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/); nomor ve
 
 ---
 
+## [0.16.0] — 2026-09-18
+
+### Ditambahkan
+
+- **⚡ Auto Fill — isi form otomatis tanpa menekan Fill** untuk profile yang di-pin:
+  - **Pin per profile**: tombol ⚡ baru di tabel Daftar Profile (Kelola) — menyala amber saat aktif; tanpa pin tidak ada yang pernah diisi otomatis.
+  - **Tiga mode eksklusif** di card baru **⚡ Auto Fill** (Kelola): **Tanya dulu** (default — toast konfirmasi di halaman dengan tombol "Isi sekarang"), **Langsung isi**, **Mati**. Perubahan live via `storage.onChanged` — halaman yang sudah terbuka ikut tanpa reload (pola resmi developer.chrome.com).
+  - **Scoring kecocokan**: fraksi field profile yang ditemukan di halaman (lewat `planFill()` baru di form-agent — statistik resolved/empty/occupied tanpa mengisi). Ambang bisa diatur (default 60%). Auto memilih sendiri hanya bila juara **jelas menang** (selisih ≥15 poin dari runner-up; bisa dimatikan) — kandidat ambigu **selalu ditanya** lewat toast pilihan (nama + %), tidak pernah ditebak.
+  - **Aturan baku anti-salah**: field yang sudah terisi tidak pernah ditimpa; profile dengan field terenkripsi (vault) dikecualikan; ketikan user di form sebelum eksekusi membatalkan auto; aksi fill/capture/generate manual juga membatalkan; satu auto per URL+profile; toast ✕ tidak muncul lagi di URL yang sama; maksimum 8 percobaan per URL (anti-loop).
+  - **Pemicu**: document_idle + tangga retry (400/1200/3000 ms), `MutationObserver` debounce 800 ms untuk form SPA/lazy-render (pola resmi MDN), `pageshow` (bfcache), dan reset state penuh saat URL berubah (SPA navigasi).
+  - **Toast bisa digeser & durasinya diatur**: notif Auto Fill dapat ditarik ke posisi mana saja — posisi tersimpan dan bertahan antar halaman/refresh (clamp viewport + tombol reset posisi). Durasi notif pilihan saling eksklusif di card ⚡ Auto Fill: **berwaktu** (default 30 detik, bisa diubah 3–600) atau **tetap tampil sampai ditutup**; notif hasil isi otomatis selalu singkat.
+  - Engine baru **`content/autofill.js`** berjalan di content script — auto fill bekerja walau popup/panel dimatikan; toast miliknya sendiri (independen widget); hasil tercatat di Fill Log; persona data dummy tetap konsisten 1-run (`{{nama}}` dkk di-resolve agent-side dengan `Gen.buildPersona()`).
+
+---
+
 ## [0.15.0] — 2026-09-18
 
 ### Ditambahkan

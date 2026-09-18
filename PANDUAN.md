@@ -133,6 +133,26 @@ Setiap fill juga tercatat di **Fill Log** halaman Kelola (lihat [bagian 8](#8-ha
 
 Form modern sering mengganti `<select>` dengan widget yang tidak mendengarkan event `change` pada field asli. Karena itu FormPilot mengisi lewat UI widget-nya sendiri: **membuka dropdown → menunggu isinya selesai dirender → mengklik opsi yang cocok** — tampilan widget ikut menampilkan item terpilih. Dropdown berkedip terbuka sebentar saat fill; itu normal.
 
+### ⚡ Auto Fill — isi otomatis tanpa klik
+
+Form yang cocok dengan profile yang **di-pin** bisa terisi sendiri, tanpa menekan Fill:
+
+1. **Pin profile** — halaman Kelola → Daftar Profile → klik tombol **⚡** pada barisnya (menyala amber = ter-pin). Tanpa pin, tidak ada yang pernah diisi otomatis.
+2. **Pilih mode** di Kelola → card **⚡ Auto Fill**:
+   - **Tanya dulu** (default) — saat form cocok, muncul toast di pojok kanan atas halaman: "⚡ Auto Fill: <nama> (N field kosong siap diisi)" → klik **Isi sekarang**.
+   - **Langsung isi** — begitu cocok langsung diisi, tanpa tanya.
+   - **Mati** — tidak ada aktivitas.
+3. **Aturan main**:
+   - Field yang sudah terisi (apa pun sumbernya) **tidak pernah ditimpa** — hanya field kosong yang diisi.
+   - Skor kecocokan = persentase field profile yang ditemukan di halaman; ada **ambang** yang bisa diatur (default 60%). Bila beberapa profile pin cocok dan juaranya tidak jelas menang (selisih < 15 poin), muncul **daftar pilihan** berisi nama + % — tidak pernah ditebak.
+   - Profile dengan field terenkripsi (vault) dikecualikan dari auto fill.
+   - Kamu mengetik di form sebelum auto jalan → auto batal untuk halaman itu.
+   - Satu profile diisi otomatis maksimal satu kali per URL; toast yang ditutup ✕ tidak muncul lagi di URL yang sama.
+4. **Notif (toast)** bisa **digeser** ke posisi mana saja — posisinya tersimpan dan tetap dipakai setelah refresh (bisa di-reset dari card ⚡ Auto Fill). Durasi bisa dipilih di card yang sama: **berwaktu** (default 30 detik, angkanya bisa diubah 3–600) atau **tetap tampil sampai ditutup**. Notif hasil isi otomatis selalu singkat.
+5. Setiap isi otomatis tercatat di **Fill Log** — jejak pengujian tetap utuh.
+
+Perubahan mode/ambang langsung berlaku di halaman yang sudah terbuka (tanpa reload). Batasan: toast bisa tertutup modal milik halaman tertentu; halaman dalam iframe tidak didukung (sama seperti capture/fill).
+
 ---
 
 ## 6. Panel Cepat di Halaman Web

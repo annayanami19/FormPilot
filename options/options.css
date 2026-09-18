@@ -150,6 +150,11 @@ button.small { padding: 4px 9px; font-size: 12px; }
 button.danger { color: var(--danger-text); border-color: var(--danger-border); }
 button.danger:hover { background: var(--danger-hover); }
 button.mini { padding: 2px 7px; font-size: 11px; margin-right: 4px; }
+button.mini.pin-on {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #fff;
+}
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td {

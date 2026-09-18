@@ -16,6 +16,7 @@ Tanpa server, tanpa helper, tanpa build step — cukup **Load unpacked**.
 
 ## Fitur
 
+- **⚡ Auto Fill** — form yang cocok dengan **profile yang di-pin** (tombol ⚡ di Daftar Profile) bisa terisi tanpa menekan Fill: mode **Tanya dulu** (toast konfirmasi di halaman, default) atau **Langsung isi**; scoring kecocokan field dengan ambang yang bisa diatur, konflik multi-profile selalu ditanya (tidak pernah ditebak), dan field yang sudah terisi tidak pernah ditimpa.
 - **Capture & Fill form** — simpan kondisi form yang sudah terisi sebagai profil, isi ulang dengan satu klik; hasil fill dilaporkan per field (terisi / diisi manual / gagal beserta alasannya).
 - **⚡ Generate Profile (data dummy)** — sekali klik: struktur form dipindai lalu tiap field diisi token data dummy (`{{nama}}`, `{{email}}`, `{{agama}}`, `{{acak}}`, ...) yang di-generate ulang setiap Fill; satu persona konsisten per eksekusi (username = konfirmasi username, email konsisten dengan nama). Bisa juga dipakai manual lewat token di editor (tombol 🎲). Kolom non-isian (search/filter/pagination) dikecualikan otomatis, dan **elemen apa pun bisa dikecualikan manual lewat tombol 🎯 Ambil di panel FP** — dikelola di card 🚫 Pengecualian Generate di halaman Kelola. Profile hasil Generate ditandai badge **⚡ gen** di semua daftar; penandanya otomatis berpindah saat profile di-update lewat jalur sebaliknya (Capture menghapusnya, Generate menyalakannya).
 - **Panel cepat tombol FP** — tombol bulat di pojok kanan bawah setiap halaman: daftar profil, cari, Fill, bahkan Capture & Generate, tanpa membuka popup. Bisa digeser, posisinya tersimpan.
@@ -60,6 +61,8 @@ Kelola profil, grup, filter, enkripsi, backup, dan log ada di halaman **⚙ Kelo
 | Grup sesuai URL | Hanya tampilkan grup yang cocok dengan halaman aktif | ON |
 | Fokus Capture ke modal | Saat modal terbuka, Capture hanya mengambil field di dalam modal | ON |
 | Kecualikan field non-isian saat Generate | Kolom search/filter/pagination dilewati ⚡ Generate — kata kunci & daftar pengecualian elemen ada di card 🚫 Pengecualian Generate | ON |
+| Auto Fill | Mode (Mati/Tanya dulu/Langsung isi) + ambang kecocokan — hanya profile yang di-pin ⚡ di Daftar Profile yang dipertimbangkan (card ⚡ Auto Fill) | Tanya dulu |
+| Notif Auto Fill | Durasi (berwaktu default 30 dtk / tetap tampil) — toast-nya bisa digeser ke mana saja, posisinya tersimpan (card ⚡ Auto Fill) | 30 detik |
 | Perbarui profil otomatis | Capture yang menemukan profil serupa langsung memperbaruinya (section sendiri di Kelola) | OFF |
 | Update otomatis | Periksa versi baru extension tiap 6 jam dari sumber versi (bisa diedit); ikon diberi tanda bila ada yang lebih baru | OFF |
 
