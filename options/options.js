@@ -1159,8 +1159,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Auto fill (card ⚡ Auto Fill) — perubahan langsung tersimpan & live
+  /* Penjelasan tiap mode — tampil dinamis di bawah dropdown Mode. */
+  const AF_MODE_HINTS = {
+    ask:
+      'Bila form cocok dengan profile pin, muncul notif di halaman untuk konfirmasi. ' +
+      'Bila beberapa profile pin cocok dan skornya seri, muncul daftar pilihan (nama + %) ' +
+      'untuk dipilih manual — tidak pernah ditebak.',
+    auto:
+      'Tidak pernah bertanya — langsung diisi dengan skor tertinggi; ' +
+      'kalau seri (skor sama), yang terakhir di-update yang dipakai.',
+    off: 'Auto Fill mati — tidak ada yang pernah diisi otomatis.',
+  };
+  const afModeHintUpdate = () => {
+    $('#afModeHint').textContent = AF_MODE_HINTS[$('#setAutoFillMode').value] || '';
+  };
   $('#setAutoFillMode').value = await DB.getAutoFillMode();
-  $('#setAutoFillMode').addEventListener('change', (e) => DB.setAutoFillMode(e.target.value));
+  afModeHintUpdate();
+  $('#setAutoFillMode').addEventListener('change', (e) => {
+    DB.setAutoFillMode(e.target.value);
+    afModeHintUpdate();
+  });
 
   $('#setAutoFillMinScore').value = await DB.getAutoFillMinScore();
   $('#setAutoFillMinScore').addEventListener('change', (e) =>

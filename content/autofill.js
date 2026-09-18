@@ -346,20 +346,30 @@
       }
     }
     if (!scored.length) return;
-    scored.sort((a, b) => b.score - a.score);
+    /* Urutan kandidat: skor tertinggi menang; seri → yang terakhir
+       di-update menang (deterministik); masih seri → nama A-Z. */
+    scored.sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.p.updatedAt || 0) - (a.p.updatedAt || 0) ||
+        String(a.p.name).localeCompare(String(b.p.name), 'id')
+    );
     const clearWin =
       scored.length === 1 ||
       (cache.allowMulti && scored[0].score - scored[1].score >= MARGIN);
 
-    if (clearWin) {
-      if (cache.mode === 'auto') {
-        await executeFill(scored[0].p);
-      } else if (!state.offered) {
+    if (cache.mode === 'auto') {
+      // Langsung isi TANPA tanya — apa pun hasil keputusannya (juara jelas
+      // menang maupun seri; seri diambil skor tertinggi/terakhir di-update).
+      await executeFill(scored[0].p);
+    } else if (clearWin) {
+      // Tanya dulu + juara jelas → satu toast konfirmasi
+      if (!state.offered) {
         state.offered = true; // satu toast per URL — jangan mengganggu berulang
         toastConfirm(scored[0].p, scored[0].stats);
       }
     } else if (!state.offered) {
-      // ambigu — mode apa pun SELALU ditanya, tidak pernah menebak
+      // Tanya dulu + ambigu → daftar pilihan, tidak pernah menebak
       state.offered = true;
       toastPick(scored);
     }

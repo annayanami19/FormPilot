@@ -144,7 +144,7 @@ Form yang cocok dengan profile yang **di-pin** bisa terisi sendiri, tanpa meneka
    - **Mati** — tidak ada aktivitas.
 3. **Aturan main**:
    - Field yang sudah terisi (apa pun sumbernya) **tidak pernah ditimpa** — hanya field kosong yang diisi.
-   - Skor kecocokan = persentase field profile yang ditemukan di halaman; ada **ambang** yang bisa diatur (default 60%). Bila beberapa profile pin cocok dan juaranya tidak jelas menang (selisih < 15 poin), muncul **daftar pilihan** berisi nama + % — tidak pernah ditebak.
+   - Skor kecocokan = persentase field profile yang ditemukan di halaman; ada **ambang** yang bisa diatur (default 60%). Di mode **Tanya dulu**, beberapa profile pin yang cocok dan tidak jelas menangnya (selisih < 15 poin) memunculkan **daftar pilihan** berisi nama + % — tidak pernah ditebak. Di mode **Langsung isi** tidak pernah bertanya: langsung diisi dengan skor tertinggi (bila seri, yang terakhir di-update).
    - Profile dengan field terenkripsi (vault) dikecualikan dari auto fill.
    - Kamu mengetik di form sebelum auto jalan → auto batal untuk halaman itu.
    - Satu profile diisi otomatis maksimal satu kali per URL; toast yang ditutup ✕ tidak muncul lagi di URL yang sama.
