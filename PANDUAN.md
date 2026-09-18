@@ -203,9 +203,10 @@ Buka dari **⚙** di panel/popup, atau klik kanan ikon extension → **Options**
 
 ### 8.3 Daftar Profile
 
-- Tabel semua profil: nama (+tag), grup, URL pattern, jumlah field, waktu diubah, aksi (**Edit / Duplikat / Hapus**).
+- Tabel semua profil: nama (+tag), grup, URL pattern, jumlah field, waktu diubah, **waktu ditambahkan**, aksi (**⚡ pin / Edit / Duplikat / Hapus**).
 - **Filter menyeluruh**: kata kunci mencari di nama, grup, tag, URL pattern, catatan, **sampai label & nilai field** (mis. cari nomor quote tertentu). Ada juga dropdown filter Grup dan Tag (dropdown tag muncul setelah ada profil ber-tag).
-- **✕ Reset** membersihkan semua filter.
+- **Urutan**: dropdown urutan — **Terbaru dulu** (default; profile paling baru ditambahkan tampil di atas), **Terlama dulu**, atau **Urut grup (A–Z)**. Di dalam tiap grup, item mengikuti urutan terbaru/terlama yang dipilih.
+- **✕ Reset** membersihkan semua filter (urutan kembali ke Terbaru dulu).
 - **🔗 Ganti Base URL** — fitur massal, lihat [bagian 9](#9-ganti-base-url-massal).
 
 ### 8.4 Editor Profile (Edit / + Profile Baru)

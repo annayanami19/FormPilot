@@ -235,6 +235,26 @@ function renderProfiles() {
   }
 
   const groups = DB.groupProfiles(list, '', GROUPS);
+  /* Urutan tampil menurut pilihan filter urutan:
+     - terbaru/terlama: grup berisi profile paling baru/lama tampil di atas,
+       dan item di dalam tiap grup diurutkan sesuai pilihan juga.
+     - grup: nama grup A–Z; item di dalamnya tetap terbaru dulu. */
+  const fSort = $('#filterSort').value || 'terbaru';
+  const addedAt = (p) => p.createdAt || p.updatedAt || 0;
+  for (const g of groups) {
+    g.items.sort((a, b) =>
+      fSort === 'terlama' ? addedAt(a) - addedAt(b) : addedAt(b) - addedAt(a)
+    );
+  }
+  if (fSort === 'grup') {
+    groups.sort((a, b) => a.name.localeCompare(b.name, 'id'));
+  } else {
+    const newestOf = (g) => Math.max(0, ...g.items.map((p) => addedAt(p)));
+    groups.sort((a, b) =>
+      fSort === 'terlama' ? newestOf(a) - newestOf(b) : newestOf(b) - newestOf(a)
+    );
+  }
+
   for (const g of groups) {
     for (const p of g.items) {
       const tr = document.createElement('tr');
@@ -249,6 +269,7 @@ function renderProfiles() {
         '<td><code>' + esc(p.urlPattern || '-') + '</code></td>' +
         '<td>' + (p.fields ? p.fields.length : 0) + '</td>' +
         '<td>' + esc(fmtTime(p.updatedAt)) + '</td>' +
+        '<td>' + esc(fmtTime(p.createdAt)) + '</td>' +
         '<td>' +
         '<button class="mini' + (p.autoPin ? ' pin-on' : '') + '" data-act="pin" data-id="' + esc(p.id) + '" title="' +
         (p.autoPin ? 'Ter-pin untuk Auto Fill — klik untuk lepas' : 'Pin untuk Auto Fill (hanya profile pin yang bisa terisi otomatis)') +
@@ -1107,10 +1128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#filter').addEventListener('input', renderProfiles);
   $('#filterGroup').addEventListener('change', renderProfiles);
   $('#filterTag').addEventListener('change', renderProfiles);
+  $('#filterSort').addEventListener('change', renderProfiles);
   $('#btnFilterReset').addEventListener('click', () => {
     $('#filter').value = '';
     $('#filterGroup').value = '';
     $('#filterTag').value = '';
+    $('#filterSort').value = 'terbaru';
     renderProfiles();
     $('#filter').focus();
   });

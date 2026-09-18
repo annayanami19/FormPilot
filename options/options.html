@@ -153,6 +153,11 @@
         <select id="filterTag">
           <option value="">Semua tag</option>
         </select>
+        <select id="filterSort" title="Urutan daftar">
+          <option value="terbaru">Terbaru dulu</option>
+          <option value="terlama">Terlama dulu</option>
+          <option value="grup">Urut grup (A–Z)</option>
+        </select>
         <button id="btnFilterReset" class="small" title="Bersihkan semua filter">✕ Reset</button>
         <button id="btnBaseUrl" class="small" title="Ganti origin (base URL) pada URL Pattern banyak profile sekaligus">🔗 Ganti Base URL</button>
       </div>
@@ -160,7 +165,7 @@
       <div class="table-scroll">
         <table id="profileTable">
           <thead>
-            <tr><th>Nama</th><th>Grup</th><th>URL Pattern</th><th>Field</th><th>Diubah</th><th>Aksi</th></tr>
+            <tr><th>Nama</th><th>Grup</th><th>URL Pattern</th><th>Field</th><th>Diubah</th><th>Ditambahkan</th><th>Aksi</th></tr>
           </thead>
           <tbody id="profileRows"></tbody>
         </table>
